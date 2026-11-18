@@ -45,11 +45,16 @@ header{display:flex;align-items:center;justify-content:space-between;padding:28p
 .mark.is-3d svg,.foot-mark.is-3d svg{display:none}
 .pill{display:inline-flex;align-items:center;gap:8px;font:600 16px/1 var(--font);color:#fff;background:var(--ink);border:0;border-radius:999px;padding:15px 24px;cursor:pointer;text-decoration:none;-webkit-tap-highlight-color:transparent}
 .pill.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 2px var(--ink)}
-.icon-btn{display:inline-grid;place-items:center;width:48px;height:48px;margin-right:-10px;padding:0;border:0;background:none;color:var(--ink);border-radius:50%;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.icon-btn svg{width:26px;height:26px;display:block}
-.icon-btn .ic-check,.icon-btn.done .ic-share{display:none}
-.icon-btn.done .ic-check{display:block}
-.icon-btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+/* Sound: the Shade Verse title-screen sound toggle (shade-verse src/title: TitleButton.tsx variant 'quiet', portfolio/ink.css, title.css .sv-sound).
+   One thin wave line: on, a gentle sine drifts; off, it eases flat. ink-button.js (kind 'sound') drives the ink flood, roll, magnet, squash and ripple. */
+.pill--sound{position:relative;isolation:isolate;overflow:hidden;height:44px;min-width:44px;margin-right:-10px;padding:0 11px;justify-content:center;color:#121315;background:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+.pill--sound:focus-visible{outline:2px solid #121315;outline-offset:3px}
+.pill--sound>.sroll{position:relative;z-index:1}
+.pill--sound .sroll{position:relative;display:block;overflow:hidden;width:22px;height:14px}
+.pill--sound .sroll .ir-a,.pill--sound .sroll .ir-b{display:block;position:absolute;inset:0}
+.pill--sound .sroll .ir-b{transform:translate3d(0,100%,0)}
+.pill--sound .ink{position:absolute;inset:0;z-index:2;pointer-events:none;visibility:hidden;clip-path:circle(0px at 0px 0px);display:flex;align-items:center;justify-content:center;background:currentColor;border-radius:inherit}
+.snd-wave{width:22px;height:14px;display:block}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 [data-view]{cursor:grab;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 [data-view]:active{cursor:grabbing}
@@ -58,6 +63,8 @@ h1,.meter,.band,.chips span{-webkit-user-select:none;user-select:none;-webkit-ta
 h1{font-weight:600;font-size:clamp(46px,6vw,80px);line-height:1.02;letter-spacing:-.035em;margin:0 0 clamp(14px,1.4vw,20px)}
 h1 .w{display:inline-block}
 h1 .w:last-child{isolation:isolate}
+/* rainbow letters: top layer, above the 3D layer (z 5), cards and nav, idle or dragged */
+h1,.close h2{position:relative;z-index:20}
 .pop{isolation:isolate;position:relative;top:-.08em;font-style:normal;font-weight:700;display:inline-block;font-size:1.06em;letter-spacing:0;padding:0 .04em 0 .02em;white-space:nowrap}
 .pop b{--f:#ffb8d6;--o:#d9468a;position:relative;display:inline-block;font-weight:700;color:var(--f);-webkit-text-stroke:.1em var(--o);paint-order:stroke fill;margin-left:-.01em;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none;translate:0 var(--y,0);rotate:var(--r,0deg)}
 .pop b:first-child{margin-left:0}
@@ -68,7 +75,7 @@ h1 .w:last-child{isolation:isolate}
 .lede{font-size:20px;line-height:1.2;color:var(--muted);max-width:28ch}
 .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:clamp(20px,2vw,28px)}
 .view{position:relative;width:100%}
-.hero .view{aspect-ratio:1/1;border-radius:48px;background:radial-gradient(circle at 50% 58%,var(--cream) 0,#fff 66%)}
+.hero .view{aspect-ratio:1/1}
 .band{background:var(--ink);color:#fff;overflow:hidden;white-space:nowrap;padding:22px 0}
 .band .track{display:inline-flex;gap:56px;padding-right:56px;font-weight:600;font-size:clamp(18px,2vw,24px);letter-spacing:-.01em;will-change:transform}
 .band .track span::after{content:"";display:inline-block;width:.5em;height:.5em;border-radius:.16em;background:var(--orange);margin-left:56px;vertical-align:.08em}
@@ -169,7 +176,7 @@ footer .dim{color:rgba(245,243,239,.62)}
 .pill--ink .ink{position:absolute;inset:0;z-index:2;pointer-events:none;visibility:hidden;clip-path:circle(0px at 0px 0px);display:flex;align-items:center;gap:12px;padding:0 30px;background:#fff;color:#121315;border-radius:inherit}
 @media (max-width:860px){.close h2{font-size:clamp(30px,calc((100vw - 44px) / 8.1),48px)}}
 @media (max-width:860px){.hero,.row,.close,.head{grid-template-columns:1fr}.hero{min-height:0;padding-top:24px;gap:48px}.hero .view{max-width:480px;width:100%;justify-self:center}.close .view{max-width:320px;order:-1}.head{gap:16px}.meters{grid-template-columns:1fr}.budget .view{max-width:340px;width:100%}.rule .view{max-width:440px;justify-self:center}}
-@media (max-width:620px){body{font-size:16px}:root{--r:28px;--gap:96px}.grid2{grid-template-columns:1fr}header{padding:20px 0}h1{font-size:clamp(42px,12vw,54px)}.hero .view{border-radius:36px}.band{padding:18px 0}.chips{margin-top:28px}}
+@media (max-width:620px){body{font-size:16px}:root{--r:28px;--gap:96px}.grid2{grid-template-columns:1fr}header{padding:20px 0}h1{font-size:clamp(42px,12vw,54px)}.band{padding:18px 0}.chips{margin-top:28px}}
 @media (prefers-reduced-motion:reduce){.js .reveal,.js .m>.mi,.js .pop b{opacity:1;transform:none;filter:none}}
 /* text balance: short text balances its lines, longer paragraphs use pretty, so no line ends with a lone word.
    Set on the parent block; split words stay inline. Locked lines (.ln, .pop, .foot-name) keep their own nowrap. */
@@ -179,13 +186,14 @@ h1,h2,h3,.label,.lede,.intro,.tile p,.meter .name,.meter .note,.say,.close p,.ch
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/","motion":"https://cdn.jsdelivr.net/npm/motion@14.14.0/+esm","lenis":"https://cdn.jsdelivr.net/npm/lenis@1.3.27/+esm"}}</script>
 </head>
 <body>
-<div class="gl-layer" aria-hidden="true"><canvas id="gl"></canvas></div>
 
 <div class="sheet">
+<!-- the shared 3D layer sits inside the sheet, so the rainbow letters (z-index 20) can sit above it -->
+<div class="gl-layer" aria-hidden="true"><canvas id="gl"></canvas></div>
 <div class="wrap">
 <header>
 <a class="mark" href="https://shifatmasud-framer.vercel.app/" aria-label="Shifat Masud, portfolio" draggable="false"><i><svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 204 204" aria-hidden="true"><path fill="#121315" d="M115.66 1.82L166.95 1.82A14 14 0 0 1 176.85 25.72L111.29 91.28A36 36 0 0 1 85.84 101.82L34.55 101.82A14 14 0 0 1 24.65 77.92L90.21 12.36A36 36 0 0 1 115.66 1.82ZM114.16 98.18L165.45 98.18A14 14 0 0 1 175.35 122.08L109.79 187.64A36 36 0 0 1 84.34 198.18L33.05 198.18A14 14 0 0 1 23.15 174.28L88.71 108.72A36 36 0 0 1 114.16 98.18Z"/></svg></i></a>
-<button class="icon-btn" id="share" type="button" aria-label="Share this page"><svg class="ic-share" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M176,160a39.89,39.89,0,0,0-28.62,12.09l-46.1-29.63a39.8,39.8,0,0,0,0-28.92l46.1-29.63a40,40,0,1,0-8.66-13.45l-46.1,29.63a40,40,0,1,0,0,55.82l46.1,29.63A40,40,0,1,0,176,160Zm0-128a24,24,0,1,1-24,24A24,24,0,0,1,176,32ZM64,152a24,24,0,1,1,24-24A24,24,0,0,1,64,152Zm112,72a24,24,0,1,1,24-24A24,24,0,0,1,176,224Z"/></svg><svg class="ic-check" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></button><span class="sr" id="share-msg" aria-live="polite"></span>
+<button class="pill pill--sound" id="sound" type="button" aria-label="Sound on" aria-pressed="true"><span class="sroll ink-par"><span class="ir-a"><canvas class="snd-wave" aria-hidden="true"></canvas></span><span class="ir-b"><canvas class="snd-wave" aria-hidden="true"></canvas></span></span><span class="ink" aria-hidden="true"><span class="sroll ink-par"><span class="ir-a"><canvas class="snd-wave" data-inv aria-hidden="true"></canvas></span><span class="ir-b"><canvas class="snd-wave" data-inv aria-hidden="true"></canvas></span></span></span></button>
 </header>
 
 <div class="hero">
@@ -329,19 +337,6 @@ if (!reduce) import('lenis').then(({ default: Lenis }) => {
     lenis.scrollTo(to, { duration: 1.4, easing: (t) => 1 - Math.pow(1 - t, 4) });
   });
 }).catch(() => {});
-
-const share = document.getElementById('share');
-const shareMsg = document.getElementById('share-msg');
-share.addEventListener('click', async () => {
-  const data = { title: document.title, url: location.href };
-  try {
-    if (navigator.share) { await navigator.share(data); return; }
-    await navigator.clipboard.writeText(location.href);
-    share.classList.add('done'); share.setAttribute('aria-label', 'Link copied'); shareMsg.textContent = 'Link copied';
-    if (!reduce) animate(share.querySelector('.ic-check'), { scale: [0.4, 1], rotate: [-20, 0] }, spring(420, 16));
-    setTimeout(() => { share.classList.remove('done'); share.setAttribute('aria-label', 'Share this page'); shareMsg.textContent = ''; }, 1800);
-  } catch (e) {}
-});
 
 // One pointer model for every element.
 // Mouse: hover moves it (push or pull). Touch: a finger dragging over it scrubs it, following the finger.
@@ -528,7 +523,6 @@ if (!reduce) {
   document.querySelectorAll('h2 .pop, h3 .pop').forEach((em) => popWord(em.parentElement));
 
   // pull toward the pointer: buttons, pills, chips, cards and tiles
-  document.querySelectorAll('#share').forEach((el) => { magnet(el, 6); press(el); });
   document.querySelectorAll('.chips span').forEach((el) => { magnet(el, 5); press(el); });
   document.querySelectorAll('.tile').forEach((el) => magnet(el, 6, -4));
   document.querySelectorAll('.card').forEach((el) => magnet(el, 3));
@@ -565,7 +559,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 const canvas = document.getElementById('gl');
 const low = (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency || 8) <= 4;
 let renderer;
-try { renderer = new THREE.WebGLRenderer({ canvas, antialias: !low, alpha: true, powerPreference: 'high-performance' }); }
+try { renderer = new THREE.WebGLRenderer({ canvas, antialias: !low, alpha: true, premultipliedAlpha: true, powerPreference: 'high-performance' }); }
 catch (e) { canvas.remove(); throw e; }
 renderer.setPixelRatio(Math.min(devicePixelRatio, low ? 1.5 : 2));
 renderer.setClearColor(0x000000, 0);
@@ -1012,7 +1006,7 @@ const builders = {
 };
 
 const views = [...document.querySelectorAll('[data-view]')].map((el) => {
-  const scene = new THREE.Scene(); stage(scene);
+  const scene = new THREE.Scene(); scene.background = null; stage(scene);
   const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 100); cam.position.z = 10;
   const inp = { active: false, down: false, press: false, nx: 0, ny: 0, grab: null, taps: [] };
   const v = { el, scene, cam, inp, pokes: [], onTap: [], aspect: 1, on: false, fade: el.closest('.reveal') };
@@ -1216,11 +1210,11 @@ try {
   const THREE = await import('three');
   const { SVGLoader } = await import('three/addons/loaders/SVGLoader.js');
   const gl = document.createElement('canvas');
-  const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, alpha: true, preserveDrawingBuffer: true, powerPreference: 'low-power' });
+  const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: true, powerPreference: 'low-power' });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setClearColor(0x000000, 0);
   const cam = new THREE.OrthographicCamera(-102, 102, 102, -102, 1, 1000); cam.position.z = 500;
-  const scene = new THREE.Scene();
+  const scene = new THREE.Scene(); scene.background = null;
   const geoFor = {};
   const meshFor = (svg) => {
     const path = svg.querySelector('path'), d = path.getAttribute('d'), fill = path.getAttribute('fill');
@@ -1265,5 +1259,6 @@ try {
   draw = null;
 }
 </script>
+<script type="module" src="./sound.js"></script>
 </body>
 </html>
