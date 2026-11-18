@@ -825,61 +825,215 @@ const builders = {
       cam.position.set(0, 2.0, aspect < 1.2 ? 10.5 / aspect * 1.25 : 10.5);
     };
   },
+  // Technical card: a real physics sim (Rapier, loaded only when the card comes near).
+  // Cubes drop onto a slab and pile up. Scroll, pointer or finger movement nudges them,
+  // a tap on the card pops them, and any cube can be grabbed, dragged and thrown.
   stack(scene, cam, x) {
+    const v = x.v, el = v.el, inp = x.inp;
     const root = new THREE.Group(); root.position.y = -0.1; root.rotation.y = 0.55; scene.add(root);
-    const base = obj(G.small, C.white); base.position.y = -1.3; root.add(base);
-    root.add(blob(1.35, -1.48));
-    const plate = obj(G.plank, C.yellow, 0.45); plate.scale.set(0.45, 0.9, 1.7); plate.position.y = -1.0; root.add(plate);
+    const GW = 1.65, GD = 0.95, GY = -1.3, GT = GY + 0.15;   // ground: half width, half depth, centre, top
+    const ground = obj(new RoundedBoxGeometry(GW * 2, 0.3, GD * 2, 4, 0.13), C.white); ground.position.y = GY; root.add(ground);
+    root.add(blob(1.95, GY - 0.17));
     const cols = [C.white, C.peach, C.orange, C.teal, C.yellow];
-    const sizes = [0.7, 0.6, 0.5, 0.42, 0.36];
-    const blocks = cols.map((c, i) => { const o = obj(G.box, c, sizes[i]); root.add(o); return o; });
-    const P = blocks.map((o) => x.poke(o, { push: 0.25, grab: false }));
-    // tap the scale to add a block; tap a block to take the top one off. It goes back to its own loop after a quiet while.
-    let sink = 0, mode = 'auto', n = 0, a0 = 0, idle = 0;
-    const st = sizes.map(() => ({ in: -99, out: -99 }));
-    x.tap((h, nx, ny, t) => {
-      idle = t;
-      if (mode !== 'hand') {
-        const T = t - a0; n = 0;
-        if (mode === 'auto' && T >= 0) { const k = T % 6.4; for (let i = 0; i < 3; i++) if (k > 1.2 + i * 1.2 && k < 5.2) n = i + 1; }
-        st.forEach((s) => { s.in = -99; s.out = -99; });
-        mode = 'hand';
-      }
-      const i = P.indexOf(h);
-      if (n > 0 && ((i >= 0 && i < n) || n === sizes.length)) { n--; st[n].out = t; }
-      else if (n < sizes.length) { st[n].in = t; st[n].out = -99; n++; }
+    const N = innerWidth < 700 ? 10 : 12;
+    const sizes = Array.from({ length: N }, (_, i) => [0.5, 0.42, 0.46, 0.36, 0.4, 0.48][i % 6]);
+    // all cubes in 2 draw calls: one instanced toon mesh and one instanced outline that shares its matrices
+    const cubeMat = new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: ramp });
+    const lineMat = new THREE.ShaderMaterial({
+      uniforms: { w: { value: 0.03 } }, side: THREE.BackSide, fragmentShader: outlineBase.fragmentShader,
+      vertexShader: 'uniform float w;\nvoid main(){\n vec4 p = vec4(position, 1.0); vec3 n = normal;\n#ifdef USE_INSTANCING\n p = instanceMatrix * p; n = mat3(instanceMatrix) * n;\n#endif\n gl_Position = projectionMatrix * modelViewMatrix * vec4(p.xyz + normalize(n) * w, 1.0);\n}'
     });
-    return (t, cam) => {
-      const sp = S(); root.rotation.y = 0.55 + sp.px * 0.35; root.rotation.x = sp.py * 0.1;
-      if (mode === 'hand' && t - idle > 9) { for (let i = 0; i < n; i++) st[i].out = t; n = 0; mode = 'leave'; a0 = t + 0.8; }
-      if (mode === 'leave' && t >= a0) mode = 'auto';
-      let landed = 0, top = -0.93;
-      if (mode === 'auto') {
-        const T = reduce ? 3.9 : (t - a0) % 6.4;
-        blocks.forEach((o, i) => {
-          const sz = sizes[i], land = top + sz / 2;
-          const d = T - (0.5 + i * 1.2);
-          let y = 3.4, sc = sz;
-          if (i > 2 || d < 0) sc = 0; else if (d < 0.7) y = 3.4 - (3.4 - land) * easeOutBounce(d / 0.7); else { y = land; landed++; }
-          if (T > 5.2) sc = Math.min(sc, sz * (1 - easeOutBack(clamp01((T - 5.2) / 0.6))));
-          o.visible = sc > 0.002; o.scale.setScalar(Math.max(0.0001, sc));
-          o.position.y = y - sink; o.rotation.y = i * 0.35;
-          top = land + sz / 2;
-        });
-        if (T > 5.2) landed = 0;
-      } else {
-        blocks.forEach((o, i) => {
-          const sz = sizes[i], land = top + sz / 2, s = st[i];
-          let y = land, sc = sz;
-          if (i < n) { const d = reduce ? 9 : t - s.in; if (d < 0.7) y = 3.4 - (3.4 - land) * easeOutBounce(clamp01(d / 0.7)); else landed++; top = land + sz / 2; }
-          else { const d = reduce ? 9 : t - s.out; if (d < 0.5) { y = land + easeOutBack(clamp01(d / 0.5)) * 0.8; sc = sz * (1 - clamp01(d / 0.5)); } else sc = 0; }
-          o.visible = sc > 0.002; o.scale.setScalar(Math.max(0.0001, sc));
-          o.position.y = y - sink; o.rotation.y = i * 0.35;
-        });
+    const cubes = new THREE.InstancedMesh(G.box, cubeMat, N), lines = new THREE.InstancedMesh(G.box, lineMat, N);
+    lines.instanceMatrix = cubes.instanceMatrix;
+    [cubes, lines].forEach((m) => { m.frustumCulled = false; m.count = 0; root.add(m); });
+    const col = new THREE.Color(); sizes.forEach((s, i) => cubes.setColorAt(i, col.setHex(cols[i % cols.length])));
+    const mark = new THREE.Object3D(); scene.add(mark);   // nudged when the cubes move, so the loop knows to draw again
+    const RM = reduce ? 0.3 : 1;
+    const B = [];
+    let R = null, world = null, acc = 0, born = -1, lastGrab = 0;
+    const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _e = new THREE.Euler();
+    const show = () => {
+      for (let i = 0; i < B.length; i++) { const t = B[i].translation(), r = B[i].rotation(); cubes.setMatrixAt(i, _m.compose(_p.set(t.x, t.y, t.z), _q.set(r.x, r.y, r.z, r.w), _s.setScalar(sizes[i]))); }
+      cubes.count = lines.count = B.length; cubes.instanceMatrix.needsUpdate = true; cubes.boundingSphere = null;
+      mark.position.x = (mark.position.x + 1) % 1000;
+    };
+    // no physics (load failed): a calm still pile
+    const still = () => {
+      sizes.forEach((s, i) => cubes.setMatrixAt(i, _m.compose(_p.set(-1.2 + (i % 5) * 0.6, GT + s / 2 + (i >= 5 ? s : 0), i >= 5 ? -0.2 : 0.3), _q.setFromEuler(_e.set(0, i * 0.4, 0)), _s.setScalar(s))));
+      cubes.count = lines.count = Math.min(N, 8); cubes.instanceMatrix.needsUpdate = true; cubes.boundingSphere = null; mark.position.x++;
+    };
+    const build = () => {
+      world = new R.World({ x: 0, y: -9.81, z: 0 });
+      const fix = (hx, hy, hz, px, py, pz, f) => world.createCollider(R.ColliderDesc.cuboid(hx, hy, hz).setTranslation(px, py, pz).setFriction(f).setRestitution(0.15));
+      const H = 3, T = 0.1, cy = GT + H;
+      fix(GW, 0.15, GD, 0, GY, 0, 0.75);
+      // invisible walls and a lid keep every cube on the slab
+      fix(T, H, GD + T, -GW - T, cy, 0, 0.2); fix(T, H, GD + T, GW + T, cy, 0, 0.2);
+      fix(GW + T, H, T, 0, cy, -GD - T, 0.2); fix(GW + T, H, T, 0, cy, GD + T, 0.2);
+      fix(GW + T, T, GD + T, 0, cy + H + T, 0, 0.2);
+    };
+    const add = (i) => {
+      const s = sizes[i], r = s * 0.12, hh = s / 2 - r;
+      let px, py, pz;
+      if (reduce) { px = -0.95 + (i % 4) * 0.63; pz = -0.5 + (Math.floor(i / 4) % 3) * 0.5; py = GT + s / 2 + 0.04; _q.setFromEuler(_e.set(0, i * 0.5, 0)); }
+      else { px = (((i * 0.618) % 1) - 0.5) * 1.5; pz = (((i * 0.382) % 1) - 0.5) * 0.9; py = 3.3; _q.setFromEuler(_e.set(Math.random() * 3, Math.random() * 3, Math.random() * 3)); }
+      const b = world.createRigidBody(R.RigidBodyDesc.dynamic().setTranslation(px, py, pz).setRotation({ x: _q.x, y: _q.y, z: _q.z, w: _q.w }).setLinearDamping(0.25).setAngularDamping(0.6).setCanSleep(true));
+      world.createCollider(R.ColliderDesc.roundCuboid(hh, hh, hh, r).setFriction(0.6).setRestitution(0.22).setDensity(1), b);
+      if (!reduce) b.setLinvel({ x: 0, y: -1.5, z: 0 }, true);
+      B.push(b);
+    };
+    // Rapier downloads only when the card is near the screen
+    let asked = false;
+    const load = async () => {
+      if (asked) return; asked = true;
+      try { const m = await import('https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs'); R = m.default || m; await R.init(); build(); }
+      catch (err) { console.warn('cubes: physics off', err); still(); }
+    };
+    const near = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { near.disconnect(); load(); } }, { rootMargin: '600px 0px' });
+    near.observe(el);
+
+    // ---- grab, drag and throw ----
+    const DRAG = { drag: true };
+    const rc = new THREE.Raycaster(), _nd = new THREE.Vector2(), _h = new THREE.Vector3(), _o = new THREE.Vector3(), _d = new THREE.Vector3(), off = new THREE.Vector3(), plane = new THREE.Plane(), tgt = new THREE.Vector3();
+    let drag = null, hov = null, onCube = false;
+    const ndc = (cx, cy) => { const r = el.getBoundingClientRect(); return _nd.set(((cx - r.left) / r.width) * 2 - 1, -(((cy - r.top) / r.height) * 2 - 1)); };
+    const hitAt = (cx, cy) => {
+      if (!world || !B.length) return null;
+      rc.setFromCamera(ndc(cx, cy), cam);
+      const h = rc.intersectObject(cubes, false)[0];
+      return h && h.instanceId != null && h.instanceId < B.length ? h : null;
+    };
+    const cursor = (c) => { el.style.cursor = c; document.documentElement.style.cursor = c === 'grabbing' ? 'grabbing' : ''; };
+    const grab = (cx, cy, h, id) => {
+      const b = B[h.instanceId];
+      cam.getWorldDirection(_d); plane.setFromNormalAndCoplanarPoint(_d, h.point);
+      const t = b.translation(); _o.set(t.x, t.y, t.z); root.localToWorld(_o); off.copy(h.point).sub(_o);
+      tgt.set(t.x, t.y, t.z);
+      drag = { b, s: sizes[h.instanceId], id, cx, cy, sx: cx, sy: cy, t0: performance.now(), hist: [], moved: false };
+      b.setGravityScale(0, true);
+      B.forEach((o) => o.wakeUp());
+      inp.grab = DRAG; lastGrab = performance.now(); cursor('grabbing');
+      if (window.__sound) window.__sound.stretch();
+    };
+    const move = (cx, cy) => { if (!drag) return; drag.cx = cx; drag.cy = cy; if (Math.hypot(cx - drag.sx, cy - drag.sy) > 6) drag.moved = true; };
+    const drop = () => {
+      if (!drag) return;
+      const d = drag, b = d.b; drag = null;
+      b.setGravityScale(1, true);
+      const now = performance.now(), hs = d.hist.filter((e) => now - e.t < 110);
+      if (!d.moved && now - d.t0 < 350) {
+        // a quick tap on a cube: a small hop
+        b.setLinvel({ x: 0, y: 3.2 * RM, z: 0 }, true); b.setAngvel({ x: (Math.random() - 0.5) * 6 * RM, y: (Math.random() - 0.5) * 6 * RM, z: (Math.random() - 0.5) * 6 * RM }, true);
+      } else if (hs.length > 1) {
+        // throw with the release speed, clamped
+        const a = hs[0], z = hs[hs.length - 1], k = 1000 / Math.max(16, z.t - a.t);
+        _h.set((z.x - a.x) * k, (z.y - a.y) * k, (z.z - a.z) * k);
+        const max = reduce ? 2.5 : 6; if (_h.length() > max) _h.setLength(max);
+        b.setLinvel({ x: _h.x, y: _h.y, z: _h.z }, true);
       }
-      sink += (landed * 0.07 - sink) * 0.12;
-      plate.position.y = -1.0 - sink;
+      inp.grab = null; lastGrab = now; cursor(onCube ? 'grab' : '');
+    };
+    el.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0 || drag) return;
+      const h = hitAt(e.clientX, e.clientY); if (!h) return;
+      e.preventDefault(); grab(e.clientX, e.clientY, h, e.pointerId);
+      try { el.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    el.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && !drag) hov = [e.clientX, e.clientY]; }, { passive: true });
+    el.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !drag) { hov = null; onCube = false; cursor(''); } }, { passive: true });
+    addEventListener('pointermove', (e) => { if (drag && e.pointerId === drag.id) move(e.clientX, e.clientY); }, { passive: true });
+    addEventListener('pointerup', (e) => { if (drag && e.pointerId === drag.id) drop(); }, { passive: true });
+    addEventListener('pointercancel', (e) => { if (drag && e.pointerId === drag.id) drop(); }, { passive: true });
+    addEventListener('selectstart', (e) => { if (drag) e.preventDefault(); });
+    // touch: a drag starts only when the finger lands on a cube; anywhere else the page scrolls as usual
+    el.addEventListener('touchstart', (e) => {
+      if (drag || e.touches.length > 1) return;
+      const t = e.changedTouches[0], h = hitAt(t.clientX, t.clientY); if (!h) return;
+      e.preventDefault(); grab(t.clientX, t.clientY, h, 't' + t.identifier);
+    }, { passive: false });
+    const tfind = (e) => { if (!drag) return null; for (const t of e.changedTouches) if ('t' + t.identifier === drag.id) return t; return null; };
+    el.addEventListener('touchmove', (e) => { const t = tfind(e); if (t) move(t.clientX, t.clientY); }, { passive: true });
+    el.addEventListener('touchend', (e) => { if (tfind(e)) drop(); }, { passive: true });
+    el.addEventListener('touchcancel', (e) => { if (tfind(e)) drop(); }, { passive: true });
+    // a tap on the card (not on a cube): pop them all up
+    x.tap(() => {
+      if (!world || performance.now() - lastGrab < 600) return;
+      for (const b of B) b.setLinvel({ x: (Math.random() - 0.5) * 1.4 * RM, y: (2.6 + Math.random() * 1.6) * RM, z: (Math.random() - 0.5) * 1.0 * RM }, true), b.setAngvel({ x: (Math.random() - 0.5) * 7 * RM, y: (Math.random() - 0.5) * 7 * RM, z: (Math.random() - 0.5) * 7 * RM }, true);
+    });
+
+    // ---- scroll and pointer movement ----
+    let sy0 = scrollY, sv = 0, pn = -1, pcx = -1, pcy = -1;
+    const _w = new THREE.Vector3(), _iq = new THREE.Quaternion();
+    const push = (dx, dy, dz) => { for (const b of B) { if (drag && b === drag.b) continue; const l = b.linvel(); b.setLinvel({ x: l.x + dx, y: l.y + dy, z: l.z + dz }, true); } };
+    const STEP = 1 / 60;
+    return (t, cam, aspect, dt = 1 / 60) => {
+      const sp = S(); root.rotation.y = 0.55 + sp.px * 0.35; root.rotation.x = sp.py * 0.1;
       cam.position.set(0, 1.8, 9.5);
+      root.updateMatrixWorld();
+      inp.press = false; if (drag) inp.grab = DRAG;
+      if (!world) return;
+      if (born < 0) born = t;
+      while (B.length < N && (reduce || t - born >= B.length * 0.22)) add(B.length);
+      // scroll: a fast change in scroll speed makes the cubes hop and slide (Lenis drives scrollY on desktop)
+      const y = scrollY, nsv = (y - sy0) / dt; sy0 = y;
+      const psv = sv; sv += (nsv - sv) * 0.35;
+      const gain = Math.abs(sv) - Math.abs(psv);
+      if (Math.abs(sv) > 250 && gain > 0) {
+        const up = Math.min(1.2, gain * 0.0011) * (reduce ? 0.25 : 1), sl = Math.max(-0.8, Math.min(0.8, -(sv - psv) * 0.0006)) * (reduce ? 0.25 : 1);
+        if (up > 0.02) push(0, up, sl);
+      } else if (Math.abs(sv - psv) > 400) {
+        const sl = Math.max(-0.6, Math.min(0.6, -(sv - psv) * 0.0005)) * (reduce ? 0.25 : 1);
+        push(0, Math.abs(sl) * 0.4, sl);
+      }
+      // pointer or finger moving anywhere: a gentle wind its way, stronger near and over the card
+      const P = window.__ptr;
+      if (P && P.n !== pn) {
+        pn = P.n;
+        if (!drag && pcx >= 0 && P.cx >= 0) {
+          const dx = P.cx - pcx, dy = P.cy - pcy, len = Math.hypot(dx, dy), speed = len / dt;
+          if (len > 0.5) {
+            const r = v.r || el.getBoundingClientRect();
+            const ox = Math.max(r.left - P.cx, 0, P.cx - r.right), oy = Math.max(r.top - P.cy, 0, P.cy - r.bottom), d = Math.hypot(ox, oy);
+            const f = d === 0 ? 1 : Math.max(0.15, 0.6 * (1 - d / 400));
+            const mag = Math.min(0.25, Math.min(speed, 3000) * 0.00008) * f * RM;
+            if (mag > 0.03) {
+              _r.setFromMatrixColumn(cam.matrixWorld, 0); _u.setFromMatrixColumn(cam.matrixWorld, 1);
+              _w.copy(_r).multiplyScalar(dx / len).addScaledVector(_u, -dy / len).applyQuaternion(_iq.copy(root.quaternion).invert());
+              push(_w.x * mag, _w.y * mag + mag * 0.35, _w.z * mag);
+            }
+          }
+        }
+        pcx = P.cx; pcy = P.cy;
+      }
+      // hover a cube with the mouse: grab cursor
+      if (hov && !drag) { onCube = !!hitAt(hov[0], hov[1]); cursor(onCube ? 'grab' : 'default'); hov = null; }
+      // drag target: the pointer on a plane facing the camera at the cube's depth
+      if (drag) {
+        rc.setFromCamera(ndc(drag.cx, drag.cy), cam);
+        if (rc.ray.intersectPlane(plane, _h)) {
+          root.worldToLocal(_h.sub(off)); const s = drag.s / 2;
+          tgt.set(Math.max(-GW + s, Math.min(GW - s, _h.x)), Math.max(GT + s, Math.min(GT + 5, _h.y)), Math.max(-GD + s, Math.min(GD - s, _h.z)));
+        }
+        const now = performance.now(); drag.hist.push({ t: now, x: tgt.x, y: tgt.y, z: tgt.z }); if (drag.hist.length > 8) drag.hist.shift();
+      }
+      // fixed 1/60 steps, at most 2 a frame; nothing runs once every cube sleeps and nobody touches them
+      if (!drag && B.length === N && B.every((b) => b.isSleeping())) { acc = 0; return; }
+      acc += dt;
+      let n = 0, hit = 0, hs = 0.45;
+      while (acc >= STEP && n < 2) {
+        if (drag) {
+          const p = drag.b.translation(); _o.set(tgt.x - p.x, tgt.y - p.y, tgt.z - p.z).multiplyScalar(16); if (_o.length() > 10) _o.setLength(10);
+          drag.b.setLinvel({ x: _o.x, y: _o.y, z: _o.z }, true); const a = drag.b.angvel(); drag.b.setAngvel({ x: a.x * 0.85, y: a.y * 0.85, z: a.z * 0.85 }, true);
+        }
+        const pre = B.map((b) => { const l = b.linvel(); return [l.x, l.y, l.z]; });
+        world.step();
+        // impacts: a sudden change in a cube's speed
+        B.forEach((b, i) => { if (drag && b === drag.b) return; const l = b.linvel(), q = pre[i], dv = Math.hypot(l.x - q[0], l.y - q[1], l.z - q[2]); if (dv > hit) { hit = dv; hs = sizes[i]; } });
+        acc -= STEP; n++;
+      }
+      if (n === 2) acc = Math.min(acc, STEP);
+      if (hit > 1.1 && window.__sound && window.__sound.tock) window.__sound.tock(hit, hs);
+      if (n) show();
     };
   },
   eye(scene, cam, x) {

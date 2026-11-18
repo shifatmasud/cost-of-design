@@ -323,6 +323,8 @@ const S = {
     v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(0.08, t + 0.01); v.gain.exponentialRampToValueAtTime(0.0001, t + 0.36);
     o.connect(v); v.connect(out); o.start(t); o.stop(t + 0.38);
   },
+  // a physics cube landing: a soft wooden tock, louder when it hits harder, a few per second at most
+  tock(speed, size = 0.45) { if (!ready() || !gate('tock', 170) || !take(0.09)) return; const k = Math.min(1, (speed - 1) / 5), f = vary(200 / size, 0.06); tone({ f, f2: f * 0.7, type: 'triangle', g: 0.012 + 0.045 * k, a: 0.002, dur: 0.07, glide: 0.05 }); air({ f: f * 3, q: 4, g: 0.004 + 0.01 * k, dur: 0.025 }); },
   // a 3D scene under the pointer: a soft round bloop
   hum() { if (!ready() || !gate('hum', 160) || !take(0.14)) return; const f = vary(330, 0.06); tone({ f, f2: f * 1.35, g: 0.045, a: 0.008, dur: 0.12, glide: 0.07 }); },
   // a finger or a held mouse sliding across a surface: a faint soft brush, louder when faster
