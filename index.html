@@ -20,16 +20,20 @@
 :root{--ink:#332b29;--muted:#6f6461;--bg:#fff;--soft:#f5f3ef;--cream:#fff8ea;--line:#ebe7e1;--yellow:#ffd876;--teal:#8bdfdd;--green:#8ed993;--peach:#ffd8cc;--orange:#f8ab41;--r:36px;--gap:clamp(112px,13vw,176px);--font:"Allo Round",system-ui,-apple-system,"Segoe UI",sans-serif}
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
-body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.2;-webkit-font-smoothing:antialiased;overflow-x:hidden;font-feature-settings:"ss01"}
+html{background:#121315}
+/* behind the page is the footer black, so corners, gaps and overscroll never show white; the content sheet stays white */
+body{background:#121315;color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.2;-webkit-font-smoothing:antialiased;overflow-x:hidden;font-feature-settings:"ss01"}
 body{position:relative}
 /* 3D layer: lives in the page and is moved to the viewport on each frame, so between frames it scrolls with the cards instead of lagging over the text */
 .gl-layer{position:absolute;left:0;top:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:5}
 #gl{position:absolute;left:0;top:0;width:100%;height:100vh;height:100lvh;display:block;will-change:transform}
 .wrap{max-width:1200px;margin:0 auto;padding:0 clamp(22px,4vw,48px)}
 header{display:flex;align-items:center;justify-content:space-between;padding:28px 0}
-.mark{display:grid;place-items:center;width:48px;height:48px;margin-left:-11px;border-radius:50%;color:var(--ink);text-decoration:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-drag:none}
+.mark{position:relative;display:grid;place-items:center;width:48px;height:48px;margin-left:-11px;border-radius:50%;touch-action:pan-y;color:var(--ink);text-decoration:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-drag:none}
 .mark:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .mark i{width:26px;height:26px;display:block;flex:none}
+/* big square hit area for hover tilt, scrub and tap (88px); layout unchanged */
+.mark::after{content:"";position:absolute;left:-20px;top:-20px;width:88px;height:88px}
 .mark i svg{width:100%;height:100%;display:block}
 /* 3D logo: an extruded model drawn head-on, so at rest it looks flat; the SVG stays only as a fallback */
 .logo3d{width:100%;height:100%;display:block;pointer-events:none}
@@ -53,7 +57,7 @@ h1 .w:last-child{isolation:isolate}
 .pop b{--f:#ffb8d6;--o:#d9468a;position:relative;display:inline-block;font-weight:700;color:var(--f);-webkit-text-stroke:.1em var(--o);paint-order:stroke fill;margin-left:-.01em;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none;translate:0 var(--y,0);rotate:var(--r,0deg)}
 .pop b:first-child{margin-left:0}
 .pop b.held{cursor:grabbing;z-index:2}
-.pop b::before{content:attr(data-l);position:absolute;left:0;top:0;z-index:-1;color:var(--o);-webkit-text-stroke:.16em var(--ink);paint-order:stroke fill;text-shadow:0 .08em .12em rgba(51,43,41,.18);pointer-events:none}
+.pop b::before{content:attr(data-l);position:absolute;left:0;top:0;z-index:-1;color:var(--o);-webkit-text-stroke:.16em var(--ink);paint-order:stroke fill;pointer-events:none}
 .pop b::after{content:attr(data-l);position:absolute;left:0;top:0;color:rgba(255,255,255,.85);-webkit-text-stroke:0;text-shadow:none;clip-path:inset(24% 50% 60% 18% round .08em);pointer-events:none}
 .pop b:nth-child(1){--f:#ffc4de;--o:#ff4f9a;--r:-5deg;--y:.05em}.pop b:nth-child(2){--f:#ffd9ad;--o:#ff8a1f;--r:4deg;--y:-.06em}.pop b:nth-child(3){--f:#fff2a6;--o:#f2bd00;--r:-3deg;--y:.04em}.pop b:nth-child(4){--f:#c6f3ba;--o:#36bb4b;--r:5deg;--y:-.05em}.pop b:nth-child(5){--f:#c2e4ff;--o:#2d97f2;--r:-4deg;--y:.05em}.pop b:nth-child(6){--f:#ddcdff;--o:#8a5cf5;--r:4deg;--y:-.04em}
 .lede{font-size:20px;line-height:1.2;color:var(--muted);max-width:28ch}
@@ -117,14 +121,16 @@ footer .dim{color:rgba(245,243,239,.62)}
 .foot-mark svg{width:100%;height:100%;display:block}
 .foot-mark:focus-visible{outline:2px solid #f5f3ef;outline-offset:4px;border-radius:6px}
 .foot-mark{position:relative}
-.foot-mark::after{content:"";position:absolute;inset:-9px}
+.foot-mark{touch-action:pan-y}
+/* big hit area (88 x 80): reaches up and out, stops above the text line */
+.foot-mark::after{content:"";position:absolute;left:-29px;right:-29px;top:-40px;bottom:-10px}
 .foot-name{position:relative;white-space:nowrap;text-decoration:none;padding:12px 0;margin:-12px 0;-webkit-tap-highlight-color:transparent;transition:opacity .25s ease}
 /* underline: faint line always; bright line grows left to right on hover/focus/tap, shrinks back on leave (transform only) */
 .foot-name::before,.foot-name::after{content:"";position:absolute;left:0;right:0;bottom:var(--ul-b,10px);height:1px;background:rgba(245,243,239,.35);pointer-events:none}
-.foot-name::after{background:#f5f3ef;transform:scaleX(0);transform-origin:left center;transition:transform .36s cubic-bezier(.22,.61,.36,1)}
-.foot-name:focus-visible::after,.foot-name.is-tap::after{transform:scaleX(1)}
+.foot-name::after{background:#f5f3ef;transform:scaleX(0);transform-origin:left center;transition:transform .45s cubic-bezier(.4,0,.6,1)}
+.foot-name:focus-visible::after,.foot-name.is-tap::after{transform:scaleX(1);transition-duration:.65s;transition-timing-function:cubic-bezier(.45,0,.2,1)}
 .foot-name:focus-visible{outline:2px solid #f5f3ef;outline-offset:2px;border-radius:4px}
-@media (hover:hover){.foot-name:hover::after{transform:scaleX(1)}}
+@media (hover:hover){.foot-name:hover::after{transform:scaleX(1);transition-duration:.65s;transition-timing-function:cubic-bezier(.45,0,.2,1)}}
 .foot-name:active{opacity:.7}
 @media (prefers-reduced-motion:reduce){.foot-name::after{transition:none}}
 .js .reveal{opacity:0;transform:translateY(24px)}
@@ -140,7 +146,7 @@ footer .dim{color:rgba(245,243,239,.62)}
 .reel .strip i{display:block;height:1em;line-height:1;font-style:normal}
 /* Read the idea: the Shade Verse title-screen Play button (shade-verse src/title: TitleButton.tsx, portfolio/ink.css, title.css .sv-play),
    as a label pill with a thick black ring. inkButton.ts (ink-button.js) drives the flood, roll, magnet, squash and ripple. */
-.pill--ink{position:relative;isolation:isolate;overflow:hidden;height:58px;padding:0 30px;gap:12px;font:600 18px/1 var(--font);color:#fff;background:#121315;box-shadow:0 0 0 3.5px #121315,0 8px 30px rgba(18,19,21,.2);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+.pill--ink{position:relative;isolation:isolate;overflow:hidden;height:58px;padding:0 30px;gap:12px;font:600 18px/1 var(--font);color:#fff;background:#121315;box-shadow:0 0 0 3.5px #121315;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
 .pill--ink:focus-visible{outline:2px solid #121315;outline-offset:7px}
 .pill--ink>.sroll{position:relative;z-index:1}
 .pill--ink .sroll{position:relative;display:block;overflow:hidden}
@@ -247,7 +253,8 @@ footer .dim{color:rgba(245,243,239,.62)}
 </div>
 <div class="foot-space" aria-hidden="true"></div>
 <footer><div class="wrap"><a class="foot-mark" href="https://shifatmasud-framer.vercel.app/" aria-label="Shifat Masud, portfolio" draggable="false"><svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 204 204" aria-hidden="true"><path fill="#f5f3ef" d="M115.66 1.82L166.95 1.82A14 14 0 0 1 176.85 25.72L111.29 91.28A36 36 0 0 1 85.84 101.82L34.55 101.82A14 14 0 0 1 24.65 77.92L90.21 12.36A36 36 0 0 1 115.66 1.82ZM114.16 98.18L165.45 98.18A14 14 0 0 1 175.35 122.08L109.79 187.64A36 36 0 0 1 84.34 198.18L33.05 198.18A14 14 0 0 1 23.15 174.28L88.71 108.72A36 36 0 0 1 114.16 98.18Z"/></svg></a><span>The Cost of Design. An idea by <a class="foot-name" href="https://shifatmasud-framer.vercel.app/" aria-label="Shifat Masud, portfolio" draggable="false">Shifat Masud</a></span><span class="dim">November 2026</span></div></footer>
-<script>(function(){document.querySelectorAll(".foot-name").forEach(function(a){var t;a.addEventListener("pointerdown",function(e){if(e.pointerType==="mouse")return;clearTimeout(t);a.classList.add("is-tap");t=setTimeout(function(){a.classList.remove("is-tap")},700)},{passive:true})})})();</script>
+<script>(function(){document.querySelectorAll(".foot-name").forEach(function(a){var t;a.addEventListener("pointerdown",function(e){if(e.pointerType==="mouse")return;clearTimeout(t);a.classList.add("is-tap");t=setTimeout(function(){a.classList.remove("is-tap")},1000)},{passive:true})})})();</script>
+<script>(function(){var m=document.querySelector('meta[name="theme-color"]'),s=document.querySelector(".foot-space");if(m&&window.IntersectionObserver)new IntersectionObserver(function(e){m.setAttribute("content",e[0].isIntersecting?"#121315":"#ffffff")}).observe(s)})()</script>
 <script>(function(){var f=document.querySelector("footer"),s=document.querySelector(".foot-space");function u(){s.style.height=f.offsetHeight+"px"}u();if(window.ResizeObserver)new ResizeObserver(u).observe(f);else addEventListener("resize",u)})();</script>
 
 <script>
@@ -325,7 +332,7 @@ function track(el, { move, leave, tap }) {
 
 // pull: the element leans toward the pointer with a soft spring
 function magnet(el, s, lift = 0) {
-  const go = (x, y) => animate(el, { x, y }, spring(170, 17));
+  const go = (x, y) => animate(el, { x, y }, spring(110, 18));
   track(el, {
     move(x, y) {
       const r = el.getBoundingClientRect();
@@ -337,8 +344,8 @@ function magnet(el, s, lift = 0) {
 }
 // buttons and pills squish when pressed and spring back
 function press(el) {
-  const up = () => animate(el, { scale: 1 }, spring(500, 14));
-  el.addEventListener('pointerdown', () => animate(el, { scale: 0.9 }, spring(700, 30)), { passive: true });
+  const up = () => animate(el, { scale: 1 }, spring(260, 20));
+  el.addEventListener('pointerdown', () => animate(el, { scale: 0.92 }, spring(380, 30)), { passive: true });
   ['pointerup', 'pointerleave', 'pointercancel'].forEach((t) => el.addEventListener(t, up, { passive: true }));
 }
 
@@ -419,9 +426,9 @@ if (!reduce) {
       lt[i] = now + d * 1000;
       const b = letters[i];
       if (b._drag) return;
-      animate(b, { y: 0 }, spring(420, 11, { velocity: -460, delay: d }));
-      animate(b, { scaleY: 1 }, spring(520, 10, { velocity: -5, delay: d }));
-      animate(b, { scaleX: 1 }, spring(520, 10, { velocity: 3.5, delay: d }));
+      animate(b, { y: 0 }, spring(240, 14, { velocity: -320, delay: d }));
+      animate(b, { scaleY: 1 }, spring(300, 14, { velocity: -3.5, delay: d }));
+      animate(b, { scaleX: 1 }, spring(300, 14, { velocity: 2.5, delay: d }));
     };
     const pushAll = (x, y) => {
       letters.forEach((b, i) => {
@@ -429,7 +436,7 @@ if (!reduce) {
         const r = b.getBoundingClientRect();
         const dx = r.left + r.width / 2 - x, dy = r.top + r.height / 2 - y, d = Math.hypot(dx, dy);
         const R = Math.max(110, r.height * 1.6), f = Math.max(0, 1 - d / R) ** 2;
-        animate(b, { x: Math.sign(dx) * f * r.width * 0.28, rotate: Math.sign(dx) * f * 9 }, spring(240, 16));
+        animate(b, { x: Math.sign(dx) * f * r.width * 0.28, rotate: Math.sign(dx) * f * 9 }, spring(140, 18));
       });
     };
     track(title, {
@@ -439,7 +446,7 @@ if (!reduce) {
         if (i >= 0 && i !== lastL) bounce(i);
         lastL = i;
       },
-      leave() { lastL = -1; letters.forEach((b) => { if (!b._drag) animate(b, { x: 0, rotate: 0 }, spring(200, 15)); }); },
+      leave() { lastL = -1; letters.forEach((b) => { if (!b._drag) animate(b, { x: 0, rotate: 0 }, spring(110, 17)); }); },
       tap() { if (letters.some((b) => b._drag)) return; letters.forEach((b, i) => bounce(i, i * 0.06, true)); }
     });
   };
@@ -453,8 +460,8 @@ if (!reduce) {
     const grab = (x, y) => { held = true; b._drag = true; b.classList.add('held'); ox = x; oy = y; follow(x, y); };
     const drop = () => {
       if (!held) return; held = false; b.classList.remove('held');
-      animate(b, { x: 0, y: 0, rotate: 0, scale: 1 }, spring(170, 9));
-      setTimeout(() => { b._drag = false; }, 450);
+      animate(b, { x: 0, y: 0, rotate: 0, scale: 1 }, spring(90, 12));
+      setTimeout(() => { b._drag = false; }, 650);
     };
     // mouse: press and drag
     b.addEventListener('pointerdown', (e) => {
@@ -503,10 +510,10 @@ if (!reduce) {
       move(x) {
         const r = k.trk.getBoundingClientRect();
         const f = clamp((x - r.left) / r.width, 0.04, 1);
-        animate(k.fill, { scaleX: f / k.base }, spring(220, 22));
+        animate(k.fill, { scaleX: f / k.base }, spring(150, 22));
         k.show(f * k.max);
       },
-      leave() { animate(k.fill, { scaleX: 1 }, spring(160, 16)); k.show(k.to, spring(160, 20)); }
+      leave() { animate(k.fill, { scaleX: 1 }, spring(100, 18)); k.show(k.to, spring(100, 20)); }
     });
   });
 }
@@ -1038,78 +1045,138 @@ requestAnimationFrame(frame);
 </script>
 <script type="module" id="logo-3d">
 // Logo marks: a real extruded 3D model of the mark, drawn head-on so it looks flat at rest.
-// Hover tilts it toward the pointer; a click spins it once on Y, then the link opens.
+// Hover tilts it toward the pointer; press and drag sideways scrubs its turn by hand;
+// a click or tap spins it once on Y, slow and soft, then the link opens.
 // One tiny shared WebGL canvas draws each logo into its own 2D canvas, only while something moves.
 const URL_ = 'https://shifatmasud-framer.vercel.app/';
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-const MAX = 18 * Math.PI / 180, SPIN = 700;
+const MAX = 18 * Math.PI / 180, SPIN = 1500, TURN = Math.PI * 2;
+const SCRUB = 1.5 * Math.PI / 180; // radians of turn per pixel of drag (follows the finger 1:1, no lag)
+const K = 30, C = 11;               // soft spring: no overshoot, settles in about 0.7 s
+const SMOOTH = 0.09;                // pointer smoothing time (s)
+// hit area around each logo box, in px [top, right, bottom, left]; matches the ::after areas in the CSS
+const PAD = { mark: [31, 31, 31, 31], 'foot-mark': [40, 29, 10, 29] };
 const logos = [...document.querySelectorAll('.mark, .foot-mark')].map((a) => ({
   a, box: a.querySelector('i') || a, svg: a.querySelector('svg'),
-  rx: 0, ry: 0, vx: 0, vy: 0, tx: 0, ty: 0, spin: -1, t0: 0, down: null, drag: false, touch: false
+  pad: PAD[a.classList.contains('mark') ? 'mark' : 'foot-mark'],
+  rx: 0, ry: 0, vx: 0, vy: 0, tx: 0, ty: 0, gx: 0, gy: 0, base: 0,
+  spin: -1, t0: 0, down: null, drag: false, touch: false, scrub: false, sx: 0, sr: 0, hist: []
 }));
-let draw = null, raf = 0;
-const kick = () => { if (draw && !raf) raf = requestAnimationFrame(tick); };
+let draw = null, raf = 0, last = 0;
+const kick = () => { if (draw && !raf) { last = performance.now(); raf = requestAnimationFrame(tick); } };
+const clamp1 = (v) => Math.max(-1, Math.min(1, v));
+// tilt maps to the whole hit area: its edges give the full 18 degrees
 const aim = (L, x, y) => {
-  if (reduce.matches || L.spin >= 0) return;
-  const r = L.a.getBoundingClientRect();
-  const nx = Math.max(-1, Math.min(1, (x - (r.left + r.width / 2)) / (r.width / 2)));
-  const ny = Math.max(-1, Math.min(1, (y - (r.top + r.height / 2)) / (r.height / 2)));
-  L.ty = nx * MAX; L.tx = ny * MAX; kick();
+  if (reduce.matches || L.spin >= 0 || L.scrub) return;
+  const r = L.box.getBoundingClientRect(), [pt, pr, pb, pl] = L.pad;
+  const dx = x - (r.left + r.width / 2), dy = y - (r.top + r.height / 2);
+  const nx = clamp1(dx / (r.width / 2 + (dx < 0 ? pl : pr)));
+  const ny = clamp1(dy / (r.height / 2 + (dy < 0 ? pt : pb)));
+  L.gy = nx * MAX; L.gx = ny * MAX; kick();
 };
-const rest = (L) => { L.tx = L.ty = 0; kick(); };
-const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const rest = (L) => { L.gx = L.gy = 0; kick(); };
+// cubic-bezier(0.65, 0, 0.35, 1): soft start, glides into the end
+const bez = (x1, y1, x2, y2) => {
+  const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx, cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+  const X = (t) => ((ax * t + bx) * t + cx) * t, Y = (t) => ((ay * t + by) * t + cy) * t, dX = (t) => (3 * ax * t + 2 * bx) * t + cx;
+  return (x) => { let t = x; for (let i = 0; i < 8; i++) { const d = dX(t); if (Math.abs(d) < 1e-6) break; t -= (X(t) - x) / d; } return Y(Math.max(0, Math.min(1, t))); };
+};
+const ease = bez(0.65, 0, 0.35, 1);
+
+const endScrub = (L) => {
+  if (!L.scrub) return;
+  L.scrub = false;
+  // momentum from the last ~80 ms of the drag
+  const now = performance.now(), h = L.hist.filter((p) => now - p[0] < 90);
+  let v = 0;
+  if (h.length > 1) { const a = h[0], b = h[h.length - 1]; if (b[0] - a[0] > 8) v = (b[1] - a[1]) / ((b[0] - a[0]) / 1000); }
+  if (now - (L.hist.length ? L.hist[L.hist.length - 1][0] : 0) > 80) v = 0;
+  L.vy = Math.max(-14, Math.min(14, v));
+  // glide back to the nearest flat face (a whole turn), after the small push
+  L.base = Math.round((L.ry + L.vy * 0.25) / TURN) * TURN;
+  L.gy = L.ty = 0; L.hist = []; kick();
+};
 
 logos.forEach((L) => {
   const a = L.a;
+  a.addEventListener('dragstart', (e) => e.preventDefault());
   a.addEventListener('pointerdown', (e) => {
-    L.down = [e.clientX, e.clientY]; L.drag = false;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    L.down = [e.clientX, e.clientY]; L.drag = false; L.pid = e.pointerId;
     if (e.pointerType !== 'mouse') { L.touch = true; aim(L, e.clientX, e.clientY); }
   }, { passive: true });
   a.addEventListener('pointermove', (e) => {
-    if (L.down && Math.hypot(e.clientX - L.down[0], e.clientY - L.down[1]) > 8) L.drag = true;
+    if (L.down && e.pointerId === L.pid) {
+      const dx = e.clientX - L.down[0], dy = e.clientY - L.down[1];
+      if (Math.hypot(dx, dy) > 8) L.drag = true;
+      // sideways drag starts a scrub (mostly vertical finger moves are left to the page scroll)
+      if (!L.scrub && draw && !reduce.matches && L.spin < 0 && Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+        L.scrub = true; L.drag = true; L.sx = e.clientX; L.sr = L.ry; L.gx = 0; L.hist = [];
+        try { a.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+      if (L.scrub) {
+        L.ry = L.sr + (e.clientX - L.sx) * SCRUB; L.vy = 0;
+        L.hist.push([performance.now(), L.ry]); if (L.hist.length > 12) L.hist.shift();
+        kick(); return;
+      }
+    }
     if (e.pointerType === 'mouse' || L.touch) aim(L, e.clientX, e.clientY);
   }, { passive: true });
-  const up = () => { L.touch = false; setTimeout(() => { L.down = null; }, 0); if (L.spin < 0) rest(L); };
-  a.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') up(); else setTimeout(() => { L.down = null; }, 0); }, { passive: true });
-  a.addEventListener('pointercancel', () => { L.touch = false; L.down = null; rest(L); }, { passive: true });
-  a.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') { L.down = null; rest(L); } }, { passive: true });
+  const up = (e) => {
+    const wasScrub = L.scrub; endScrub(L);
+    if (e.pointerType !== 'mouse') { L.touch = false; if (!wasScrub && L.spin < 0) rest(L); }
+    else if (wasScrub) aim(L, e.clientX, e.clientY);
+    setTimeout(() => { L.down = null; }, 0);
+  };
+  a.addEventListener('pointerup', up, { passive: true });
+  a.addEventListener('lostpointercapture', () => endScrub(L), { passive: true });
+  a.addEventListener('pointercancel', () => { endScrub(L); L.touch = false; L.down = null; rest(L); }, { passive: true });
+  a.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !L.scrub) { if (!(e.buttons & 1)) L.down = null; rest(L); } }, { passive: true });
   a.addEventListener('click', (e) => {
-    // a drag never opens the link
+    // a drag or a scrub never opens the link
     if (L.drag && e.detail) { e.preventDefault(); L.drag = false; return; }
     // new tab right away, as the browser does it
     if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0) return;
     if (reduce.matches || !draw) return;
     e.preventDefault();
     if (L.spin >= 0) return;
-    L.spin = 0; L.t0 = performance.now(); L.tx = L.ty = 0; kick();
+    L.spin = 0; L.t0 = performance.now(); L.gx = L.gy = 0; kick();
   });
 });
 // coming back with the Back button: start flat and still
-addEventListener('pageshow', (e) => { if (e.persisted) logos.forEach((L) => { L.spin = -1; L.rx = L.ry = L.vx = L.vy = L.tx = L.ty = 0; if (draw) draw(L); }); });
+addEventListener('pageshow', (e) => { if (e.persisted) logos.forEach((L) => { L.spin = -1; L.scrub = false; L.rx = L.ry = L.vx = L.vy = L.tx = L.ty = L.gx = L.gy = L.base = 0; if (draw) draw(L); }); });
 
 function tick() {
   raf = 0;
   const now = performance.now();
+  const dt = Math.min(1 / 30, Math.max(1 / 240, (now - last) / 1000)); last = now;
   let busy = false;
   for (const L of logos) {
     let moved = false;
-    // soft spring toward the target tilt
-    const k = 140, c = 19, dt = 1 / 60;
+    // smooth the pointer target, then a soft spring follows it
+    const f = 1 - Math.exp(-dt / SMOOTH);
     for (const ax of ['x', 'y']) {
-      const p = 'r' + ax, v = 'v' + ax, t = 't' + ax;
-      if (Math.abs(L[t] - L[p]) > 1e-4 || Math.abs(L[v]) > 1e-3) {
-        L[v] += (k * (L[t] - L[p]) - c * L[v]) * dt; L[p] += L[v] * dt; moved = true;
-      } else if (L[p] !== L[t]) { L[p] = L[t]; L[v] = 0; moved = true; }
+      const g = 'g' + ax, t = 't' + ax;
+      if (Math.abs(L[g] - L[t]) > 1e-5) { L[t] += (L[g] - L[t]) * f; moved = true; } else L[t] = L[g];
     }
+    for (const ax of ['x', 'y']) {
+      if (ax === 'y' && L.scrub) { moved = true; continue; } // the drag sets the turn directly
+      const p = 'r' + ax, v = 'v' + ax, goal = L['t' + ax] + (ax === 'y' ? L.base : 0);
+      if (Math.abs(goal - L[p]) > 1e-4 || Math.abs(L[v]) > 1e-3) {
+        L[v] += (K * (goal - L[p]) - C * L[v]) * dt; L[p] += L[v] * dt; moved = true;
+      } else if (L[p] !== goal) { L[p] = goal; L[v] = 0; moved = true; }
+    }
+    // settled after a scrub: fold whole turns away so numbers stay small
+    if (!L.scrub && L.base && L.ry === L.ty + L.base && !L.vy) { L.ry -= L.base; L.base = 0; }
     let go = false;
     if (L.spin >= 0) {
       L.spin = Math.min(1, (now - L.t0) / SPIN); moved = true;
-      if (L.spin >= 1) { L.spin = -1; L.rx = L.ry = L.vx = L.vy = 0; go = true; }
+      if (L.spin >= 1) { L.spin = -1; L.rx = L.vx = L.vy = 0; L.ry = 0; L.base = 0; go = true; }
     }
     if (moved) { draw(L); busy = true; }
     if (go) { L.a.dispatchEvent(new CustomEvent('logospun')); location.assign(L.a.href || URL_); }
   }
-  if (busy) kick();
+  if (busy) raf = requestAnimationFrame(tick);
 }
 
 try {
@@ -1149,7 +1216,7 @@ try {
     const S = Math.max(...logos.map((o) => Math.round((o.box.clientWidth || 26) * dpr)));
     if (gl.width !== S) renderer.setSize(S, S, false);
     const m = L.mesh;
-    m.rotation.set(L.rx, L.ry + (L.spin >= 0 ? ease(L.spin) * Math.PI * 2 : 0), 0, 'YXZ');
+    m.rotation.set(L.rx, L.ry + (L.spin >= 0 ? ease(L.spin) * TURN : 0), 0, 'YXZ');
     scene.add(m); renderer.render(scene, cam); scene.remove(m);
     L.ctx.clearRect(0, 0, px, px); L.ctx.drawImage(gl, 0, 0, gl.width, gl.height, 0, 0, px, px);
   };

@@ -52,8 +52,8 @@ var browser = { get reducedMotion() {
 var EIN = cssBezier(...HOUSE.IN);
 var EINOUT = cssBezier(...HOUSE.INOUT);
 var INK = {
-  FLOOD: 0.6,
-  DRAIN: 0.5,
+  FLOOD: 0.85,
+  DRAIN: 0.65,
   TAP_HOLD: 0.32,
   MAG_MAX: { cta: 8, sound: 4 },
   MAG_PAD: 0.2,
