@@ -155,6 +155,7 @@ footer .dim{color:rgba(245,243,239,.62)}
 .js .m>.mi{transform:translateY(125%)}
 .js .pop b{transform:scale(0)}
 /* hero button: hidden but keeps its space until the intro shows it last (not clickable or focusable till then). No fade: it grows in by scale only */
+.hero .cta{width:fit-content;transform-origin:50% 50%}
 .js .hero .cta{transform:scale(0);visibility:hidden}
 .js .hero .cta.on{visibility:visible}
 /* during the hero intro only: its moving parts get their own layers up front, so the compositor moves them with no re-raster */
@@ -474,9 +475,7 @@ if (!reduce) {
   const fonts = document.fonts ? Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 2500))]) : Promise.resolve();
   const cta = document.querySelector('.hero .cta');
   const go = Promise.all([fonts, firstFrame]).then(() => {
-    // all layout reads happen here, before anything moves: the button grows from its own centre
-    const a = cta.firstElementChild, cr = cta.getBoundingClientRect(), ar = a.getBoundingClientRect();
-    cta.style.transformOrigin = `${Math.round(ar.left - cr.left + ar.width / 2)}px 50%`;
+    // the button grows from its true centre: .cta hugs the button (width: fit-content) and its origin is 50% 50% in CSS
     mark('go'); window.__heroGo = true;   // the 3D starts its scale-up on its next frame
   });
   // the 3D leads; if WebGL is slow, off screen or missing, the title goes anyway (at once when the hero is scrolled away, else 1.5 s after the start)
@@ -498,13 +497,14 @@ if (!reduce) {
   });
   const heroDone = Promise.race([titleDone, go.then(() => new Promise((r) => setTimeout(r, 6000)))]).then(() => mark('letters'));
   // button: shows last, after the subtitle. It grows from its own centre (scale 0 -> 1, no fade) on its wrapper, so the button's own
-  // magnet, squash and ink transforms never fight it. 0.55 s soft ease-out, no overshoot. Safety: it shows by 8 s no matter what.
+  // magnet, squash and ink transforms never fight it. Same curve and about the same length as the subtitle's slide (EASE, 1 s),
+  // no overshoot. It starts from 0: with no fade, a start at 0.6 would blink in at 60% size. Safety: it shows by 8 s no matter what.
   // When it has landed, the intro is over: will-change comes off and the deferred work may start.
   let ledeDone; const ledeP = new Promise((r) => { ledeDone = r; });
   Promise.race([ledeP, go.then(() => new Promise((r) => setTimeout(r, 8000)))]).then(() => {
     mark('button');
     cta.classList.add('on');
-    return move(cta, 'scale(0.001)', 'scale(1)', 0.55, 0, EASE, 1);
+    return move(cta, 'scale(0.001)', 'scale(1)', 1.0, 0, EASE, 1);
   }).then(() => {
     mark('buttonIn');
     document.documentElement.classList.remove('intro-run');
@@ -1027,7 +1027,7 @@ const builders = {
       b.setGravityScale(0, true);
       B.forEach((o) => o.wakeUp());
       inp.grab = DRAG; lastGrab = performance.now(); cursor('grabbing');
-      if (window.__sound) window.__sound.stretch();
+      if (window.__sound) (window.__sound.grab3 ? window.__sound.grab3(cx) : window.__sound.stretch());
     };
     const move = (cx, cy) => { if (!drag) return; drag.cx = cx; drag.cy = cy; if (Math.hypot(cx - drag.sx, cy - drag.sy) > 6) drag.moved = true; };
     const drop = () => {
