@@ -114,6 +114,13 @@ footer .dim{color:rgba(245,243,239,.62)}
 .foot-mark{display:block;width:30px;height:30px;margin-bottom:16px;-webkit-tap-highlight-color:transparent}
 .foot-mark svg{width:100%;height:100%;display:block}
 .foot-mark:focus-visible{outline:2px solid #f5f3ef;outline-offset:4px;border-radius:6px}
+.foot-mark{position:relative;transition:transform .35s cubic-bezier(.2,.7,.2,1),opacity .25s ease}
+.foot-mark::after{content:"";position:absolute;inset:-9px}
+.foot-name{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;text-decoration-color:rgba(245,243,239,.35);padding:12px 0;margin:-12px 0;-webkit-tap-highlight-color:transparent;transition:text-decoration-color .25s ease,opacity .25s ease}
+.foot-name:focus-visible{outline:2px solid #f5f3ef;outline-offset:2px;border-radius:4px}
+@media (hover:hover){.foot-mark:hover{transform:translateY(-2px) rotate(-8deg);opacity:.85}.foot-name:hover{text-decoration-color:#f5f3ef}}
+.foot-mark:active{transform:scale(.92)}.foot-name:active{opacity:.7}
+@media (prefers-reduced-motion:reduce){.foot-mark{transition:opacity .25s ease}.foot-mark:hover{transform:none}}
 .js .reveal{opacity:0;transform:translateY(24px)}
 .m{display:inline-block;overflow:hidden;padding:.14em .08em .16em;margin:-.14em -.08em -.16em}
 .m>.mi{display:inline-block}
@@ -233,7 +240,7 @@ footer .dim{color:rgba(245,243,239,.62)}
 </div>
 </div>
 <div class="foot-space" aria-hidden="true"></div>
-<footer><div class="wrap"><a class="foot-mark" href="https://shifatmasud-framer.vercel.app/" aria-label="Shifat Masud, portfolio" draggable="false"><svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 204 204" aria-hidden="true"><path fill="#f5f3ef" d="M115.66 1.82L166.95 1.82A14 14 0 0 1 176.85 25.72L111.29 91.28A36 36 0 0 1 85.84 101.82L34.55 101.82A14 14 0 0 1 24.65 77.92L90.21 12.36A36 36 0 0 1 115.66 1.82ZM114.16 98.18L165.45 98.18A14 14 0 0 1 175.35 122.08L109.79 187.64A36 36 0 0 1 84.34 198.18L33.05 198.18A14 14 0 0 1 23.15 174.28L88.71 108.72A36 36 0 0 1 114.16 98.18Z"/></svg></a><span>The Cost of Design. An idea by Shifat Masud</span><span class="dim">November 2026</span></div></footer>
+<footer><div class="wrap"><a class="foot-mark" href="https://shifatmasud-framer.vercel.app/" aria-label="Shifat Masud, portfolio" draggable="false"><svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 204 204" aria-hidden="true"><path fill="#f5f3ef" d="M115.66 1.82L166.95 1.82A14 14 0 0 1 176.85 25.72L111.29 91.28A36 36 0 0 1 85.84 101.82L34.55 101.82A14 14 0 0 1 24.65 77.92L90.21 12.36A36 36 0 0 1 115.66 1.82ZM114.16 98.18L165.45 98.18A14 14 0 0 1 175.35 122.08L109.79 187.64A36 36 0 0 1 84.34 198.18L33.05 198.18A14 14 0 0 1 23.15 174.28L88.71 108.72A36 36 0 0 1 114.16 98.18Z"/></svg></a><span>The Cost of Design. An idea by <a class="foot-name" href="https://shifatmasud-framer.vercel.app/" aria-label="Shifat Masud, portfolio" draggable="false">Shifat Masud</a></span><span class="dim">November 2026</span></div></footer>
 <script>(function(){var f=document.querySelector("footer"),s=document.querySelector(".foot-space");function u(){s.style.height=f.offsetHeight+"px"}u();if(window.ResizeObserver)new ResizeObserver(u).observe(f);else addEventListener("resize",u)})();</script>
 
 <script>
