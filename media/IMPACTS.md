@@ -29,8 +29,3 @@ They are real recorded foley, not synth.
 `tools/impacts/build-impacts.py`: mono 48 kHz, gentle high-pass (90 to 160 Hz) and low-pass at 5.5 kHz,
 trimmed tight (85 to 280 ms), natural decay kept with a short fade at the end, no reverb added,
 levelled for a phone speaker. Encoded with ffmpeg: Opus 32 kbps, MP3 48 kbps at 24 kHz.
-
-## Also used in the music
-
-The muted low wood ostinato in the perc stem (media/bgm-perc.*) uses solid-1 (pitched down to 0.8x) and wood-1
-(0.62x and 0.66x), low-passed at 1.1 kHz. Same CC0 source. Script: tools/drums/drums_hypno.py.

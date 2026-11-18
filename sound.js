@@ -1,21 +1,14 @@
-// Sound: tiny UI sounds made live with Web Audio, recorded knocks and 3D taps, plus ambient background music in seven synced
-// stems (media/bgm-*.ogg, mp3 fallback) that follows the section in view.
+// Sound: tiny UI sounds made live with Web Audio, recorded knocks and 3D taps, plus one ambient background music loop
+// (media/bgm.ogg, mp3 fallback).
 // The page's own idea, applied to sound: every sound has a cost, so each one is short, quiet and warm.
 // - One shared AudioContext. Sound is ON by default; a visitor's own "off" is saved in localStorage.
 // - Browsers block audio until a real gesture, so the context unlocks on the first tap, click or key anywhere,
 //   and that first interaction plays its own sound right away.
 // - Low master volume, a soft limiter, a little random pitch on every sound, throttles and a voice cap so fast repeats never stack.
 // - Muted while the tab is hidden. With reduced motion, the scroll-driven sounds are dropped.
-// - Background music: airy pads, a soft girl choir (bed and melody), vocal chops, a calm, hypnotic drum groove in two stems,
-//   a slow, sleepy half-time groove on its own 8-bar loop (kick: soft, short, dry, only in the drop, section 03, a 4-bar loop:
-//   bars 1 and 3 even on every beat, bars 2 and 4 sparse and swung; perc: one soft snap on 3, a lazy shaker and a muted low
-//   wood 3-3-2, in a small room; a short soft snap fill closes every 8th bar) and a warm reese bass, the rest far back in a
-//   long dark hall, highs rolled off. Mix order on a speaker: drums, bass, chops, choir, pads (quietest). Rendered offline
-//   (70 BPM, seamless): five music stems of 18 bars and two drum stems of 8 bars on the same bar grid. The kick gently pumps
-//   the bass, pads and choir.
-//   Each section change plays one soft, dark noise rise and fall; the new layers come in on its way down. Loaded only
-//   after sound unlocks, kept well under the UI sounds, ducks a little when a UI sound plays, fades with the wave button,
-//   pauses with the tab.
+// - Background music: one quiet, seamless ambient loop (pads, choir, chops, warm bass; no drums, no layers, no sweeps).
+//   Loaded only after sound unlocks, kept well under the UI sounds, ducks a little when a UI sound plays, fades with the
+//   wave button, pauses with the tab.
 // The toggle is the Shade Verse title-screen sound button (shade-verse src/title/TitleButton.tsx, variant 'quiet'):
 // one thin wave line, a gentle sine drifts when on and eases flat when off, with the same ink press (ink-button.js, kind 'sound').
 import { bindInk } from './ink-button.js';
@@ -63,280 +56,56 @@ document.addEventListener('visibilitychange', () => {
   else ctx.resume().then(() => { if (!mus) music(); }, () => {});
 });
 
-// ---------- background music: seven synced stems that follow the section in view ----------
-// Ambient, 70 BPM, 18 bars (61.7 s), seamless. Stems: airy pads and choir in a long dark hall, choir melody, vocal chops
-// (every other 2 bars), and a soft, round reese bass, all 18 bars. Drums (8 bars, 27.4 s, half-time and sleepy, laid
-// back 20 ms with a lazy swing on the 'ands'): kick in a 4-bar loop (bars 1 and 3: soft and even on every beat; bars 2 and
-// 4: 1, the 'and' of 2, the 'and' of 3); perc: one soft snap on beat 3, a lazy shaker (soft pull on the beat, slow push on
-// the 'and'), a muted low wood 3-3-2 from real CC0 wood knocks (bar 4 of each 4 plays only its first knock), and a short
-// soft snap fill (beat 4, 'and', 'a') at the end of bar 8, the only variation. 8 bars don't divide 18, so the drum stems
-// loop on their own 8 bars; both loops are whole bars at 70 BPM, so they stay on the same beat grid. All seven start
-// on one AudioContext clock at the same time, so they stay locked. An IntersectionObserver picks the section in the middle
-// of the screen. Section change: a soft noise rise plays first while the old mix stays; its peak lands on the beat, and
-// there the stems and the low-pass glide to the new section (about 1.3 s) while the noise falls. No scroll handler.
-// Sidechain pump: a duck curve made once from the kick hit times (below) loops in sync with the kick stem (8 bars) and dips the bass,
-// pads and choir on each kick hit. Its depth moves with the kick stem, so it only pumps in the drop (03).
-// No per-frame work: after the start it all runs inside the audio engine.
-const MUSIC = 0.043;           // quiet: well under the UI sounds
-const LOOP = 18 * 4 * 60 / 70;                     // music stems: 18 bars
-const DLOOP = 8 * 4 * 60 / 70;                     // drum stems (kick, perc) and the pump: 8 bars
-const STEMS = ['pads', 'choir', 'melody', 'chops', 'kick', 'perc', 'bass'];
-const KI = 4;                                       // index of the kick stem
-const BEAT = 60 / 70;
-// Small speakers. A phone or laptop speaker plays almost nothing under about 350 Hz. The drums (kick body, mostly
-// 80-160 Hz) and the reese bass (low-passed at 520 Hz) live down there, so through a speaker they sat 21-40 dB under the
-// pads and were never heard, and the chops sat 17-26 dB under. Each stem gets a fixed trim and voicing before the section
-// gain, so the same mix carries on a speaker and stays mellow on headphones (measured offline on the stems):
-// - drums: snap and kick click brought forward with two soft mid peaks, and a little warmth from the kick body
-// - bass: soft harmonics (300-1100 Hz) made from its own low end, so the ear hears the bass line on a small speaker
-// - chops: +6 dB
-const VOICE = {
-  chops: { trim: 1.31 },
-  kick:  { trim: 7.05, eq: [[1800, 0.9, 12], [650, 1, 6]], shelf: [220, -9], warm: { split: 180, pre: 4, drive: 2, hp: 250, lp: 900, mix: 0.12 } },
-  bass:  { trim: 1.08, shelf: [180, -6], warm: { split: 260, pre: 4, drive: 1.6, hp: 300, lp: 1100, mix: 0.7 } },   // softer, rounder overtones
-};
-VOICE.perc = VOICE.kick;                           // same voicing as the old single drum stem
-// Mix order, as heard on a phone or laptop speaker (Shifat): drums loudest, then bass, then chops, then choir and choir
-// melody, and the pads quietest, about 3 dB per step wherever the layers play. Done mostly by turning the pads and choir
-// down. The low shelf on the drums and bass keeps headphones from getting boomy, so the total stays within about 3 dB
-// of the old mix on both a speaker and headphones. The kick stem is dry, no reverb (its 2-4 kHz click skips the soft tone
-// cut so it reads on phone speakers); the perc stem has only a short small room on the snaps and shaker. Nothing here
-// adds reverb or a hall to either.
-// per section: gain of each stem (pads, choir, melody, chops, kick, perc, bass), the low-pass cutoff in Hz, and p, the
-// pump depth (1 in the drop only, where the kick plays). Calm ambient (Shifat): levels on a speaker, vs the loudest
-// layer: perc and bass 0, chops -3, choir -6, pads -9 in the drum sections; the drums are 3 dB lower than before and the
-// whole mix is about 2-4 dB quieter. In the drop the kick comes in 1.5 dB under the perc, a soft lift, not a slam.
-const MIX = {
-  hero:   { g: [0.293, 0.32, 0, 0, 0, 0, 2.047], lp: 2000, p: 0 },  // bass, then choir, then pads
-  rule:   { g: [0.155, 0.169, 0.16, 1.2, 0, 0.178, 1.507], lp: 2300, p: 0 },  // 01: one rule for every sense, light perc
-  cost:   { g: [0.144, 0.157, 0, 1.125, 0, 0.163, 1.392], lp: 2600, p: 0 },  // 02: two kinds of cost, perc
-  noise:  { g: [0.137, 0.149, 0, 1.063, 0.693, 0.153, 1.334], lp: 2900, p: 1 },  // 03: noise vs intent, the drop: kick + pump
-  budget: { g: [0.191, 0.199, 0.237, 1.515, 0, 0.217, 1.839], lp: 3200, p: 0 },  // 04: budget, brightest, perc
-  close:  { g: [0.319, 0.348, 0.328, 0, 0, 0, 2.206], lp: 2200, p: 0 },  // spend with intent: bass, choir, pads
-  footer: { g: [0.308, 0, 0, 0, 0, 0, 1.506], lp: 900, p: 0 },  // dark footer: bass over pads, soft swell
-};
-// sidechain: stem index -> duck depth at pump 1 (very gentle, half the old depth: about -2.2 dB bass, -1.3 dB pads,
-// -0.4 dB choir at the deepest)
-const PUMP = { 6: 0.225, 0: 0.14, 1: 0.05 };
-// kick hits in the 8-bar drum loop: [time s, weight] (from the same render as bgm-kick)
-const HITS = [[0.857,0.55],[1.714,0.75],[2.57,0.55],[3.428,0.9],[4.765,0.55],[5.622,0.65],[6.858,0.9],[7.714,0.55],[8.571,0.75],[9.429,0.55],[10.286,0.9],[11.623,0.55],[12.48,0.65],[13.714,0.9],[14.572,0.55],[15.427,0.75],[16.286,0.55],[17.143,0.9],[18.481,0.55],[19.338,0.65],[20.572,0.9],[21.429,0.55],[22.286,0.75],[23.142,0.55],[23.999,0.9],[25.337,0.55],[26.194,0.65],[27.428,0.9]];
-function pumpBuffer() {
-  // a small mono curve at a low rate (3 kHz is plenty for a gain curve): 0 at rest, down to -1 on a full hit.
-  // Each hit dips in 30 ms and lets go over about 2/3 of a beat (time constant 0.2 s at 70 BPM).
-  let sr = 3000, b;
-  try { b = ctx.createBuffer(1, Math.round(DLOOP * sr), sr); } catch (_) { sr = 22050; b = ctx.createBuffer(1, Math.round(DLOOP * sr), sr); }
-  const d = b.getChannelData(0), n = d.length;
-  for (const [t0, w] of HITS) for (const sh of [-DLOOP, 0, DLOOP]) {
-    const a = Math.max(0, Math.ceil((t0 + sh - 0.03) * sr)), z = Math.min(n, Math.floor((t0 + sh + 1.6) * sr));
-    for (let i = a; i < z; i++) {
-      const dt = i / sr - (t0 + sh), e = w * (dt < 0 ? (dt + 0.03) / 0.03 : Math.exp(-dt / 0.2));
-      if (-e < d[i]) d[i] = -Math.min(e, 1);
-    }
-  }
-  return b;
-}
-// a stem's fixed voicing: src -> trim -> mid peaks -> out, plus src -> low band -> soft clip -> 300 Hz-1 kHz band -> out
-let shapeCurve = null;
-function voice(name, out) {
-  const v = VOICE[name];
-  if (!v) return out;
-  const inp = ctx.createGain(); inp.gain.value = v.trim;
-  let last = inp;
-  (v.eq || []).forEach(([f, q, db]) => {
-    const p = ctx.createBiquadFilter(); p.type = 'peaking'; p.frequency.value = f; p.Q.value = q; p.gain.value = db;
-    last.connect(p); last = p;
-  });
-  if (v.shelf) {                                   // low shelf: less boom on headphones, same on a small speaker
-    const sf = ctx.createBiquadFilter(); sf.type = 'lowshelf'; sf.frequency.value = v.shelf[0]; sf.gain.value = v.shelf[1];
-    last.connect(sf); last = sf;
-  }
-  last.connect(out);
-  if (v.warm) {
-    const w = v.warm, split = ctx.createBiquadFilter(), pre = ctx.createGain(), sh = ctx.createWaveShaper(),
-      hp = ctx.createBiquadFilter(), lp = ctx.createBiquadFilter(), mix = ctx.createGain(), tap = ctx.createGain();
-    split.type = 'lowpass'; split.frequency.value = w.split; split.Q.value = 0;
-    pre.gain.value = w.pre;
-    if (!shapeCurve || shapeCurve.d !== w.drive) {
-      const n = 1024, c = new Float32Array(n), k = Math.tanh(w.drive);
-      for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; c[i] = Math.tanh(w.drive * x) / k; }
-      shapeCurve = { c, d: w.drive };
-    }
-    sh.curve = shapeCurve.c;
-    hp.type = 'highpass'; hp.frequency.value = w.hp; hp.Q.value = 0;
-    lp.type = 'lowpass'; lp.frequency.value = w.lp; lp.Q.value = 0;
-    mix.gain.value = w.mix * v.trim;
-    tap.connect(split); split.connect(pre); pre.connect(sh); sh.connect(hp); hp.connect(lp); lp.connect(mix); mix.connect(out);
-    tap.connect(inp);
-    return tap;
-  }
-  return inp;
-}
-// ?audiodebug: a small readout of each stem (loaded, decoded, playing, gain, live level), to check on a real phone
+// ---------- background music: one quiet ambient loop ----------
+// One file (media/bgm.ogg, mp3 fallback): airy pads, a soft girl choir (bed and melody), vocal chops and a warm reese bass,
+// mixed down offline into one seamless loop (70 BPM, 18 bars, 61.7 s). No drums, no section sweeps, no layers (Shifat:
+// "Rm grooves drums" and "Keep 1 loop. No need layers"). It plays the same the whole time, with no scroll handler and no
+// per-frame work. The bass harmonics and chops lift for small speakers are baked into the file, so a phone speaker still
+// hears the bass line. The file starts with 50 ms of the loop's end and ends with 50 ms of its start, so the codec's
+// edges sit outside the loop and the loop point is clean. Loaded only after sound unlocks (first tap) and after the hero
+// intro, kept well under the UI sounds, ducks a little when a UI sound plays, fades with the wave button, pauses with the tab.
+const MUSIC = 0.0195;          // quiet: well under the UI sounds (the file is normalized; same level as the old mix)
+const PRE = 0.05;              // the loop starts 50 ms into the file
+const LOOP = 2962286 / 48000;  // 18 bars at 70 BPM, as rendered
+// ?audiodebug: a small readout of the music (loaded, decoded, playing, live level), to check on a real phone
 const DEBUG = /[?&]audiodebug\b/.test(location.search);
-const dbg = { stems: STEMS.map((n) => ({ n, st: 'waiting for first tap', kb: 0, dur: 0, ch: 0, ext: '', err: '' })), note: '' };
-let mus = null, duckT = 0, scene = 'hero';
+const dbg = { st: 'waiting for first tap', kb: 0, dur: 0, ch: 0, ext: '', err: '' };
+let mus = null, duckT = 0;
 const musFade = (to, sec) => {
   if (!mus) return;
   const g = mus.gain.gain, t = ctx.currentTime;
   g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(to, t + sec);
 };
-// glide a param: hold where it is now (t), then from `at` ease to `to` with time constant tc
-const glide = (p, to, t, tc, at = t) => { p.cancelScheduledValues(t); p.setValueAtTime(p.value, t); p.setTargetAtTime(to, at, tc); };
-// land a section's mix from `at`. 'fx': with the noise fall (tc 0.45 s, settled in about 1.3 s; the kick and the pump a
-// bit faster, 0.3 s, so the drop lands clearly and leaves cleanly). 'slow': no sweep (sound off, tab hidden), old 3 s glide.
-function land(name, t, at, mode) {
-  const m = MIX[name], k = mode === 'now' ? 0.01 : mode === 'slow' ? 0.9 : 0.45, kk = mode === 'fx' ? 0.3 : k;
-  mus.st.forEach((g, i) => glide(g.gain, m.g[i], t, i === KI ? kk : k, at));
-  mus.amt.forEach(([i, a]) => glide(a.gain, PUMP[i] * m.p, t, kk, at));   // pump depth moves with the kick
-  glide(mus.lp.frequency, m.lp, t, mode === 'now' ? 0.01 : mode === 'slow' ? 1.1 : 0.55, at);
-  if (name === 'footer' && mode !== 'now') {                          // a soft swell as the footer opens
-    const p = mus.st[0].gain; p.cancelScheduledValues(t); p.setValueAtTime(p.value, t);
-    p.setTargetAtTime(m.g[0] * 1.25, at, 0.8); p.setTargetAtTime(m.g[0], at + 3, 1.6);   // +2 dB, stays under the bass
-  }
-}
-// ---------- section transitions: one soft, dark noise rise and fall ----------
-// Pink noise (stereo, each side its own, so it feels wide) -> band-pass sweeping up, then down -> two fixed low-passes at
-// 1.8 kHz (steep: nothing bright, no hiss) -> 140 Hz high-pass -> soft swell and fade -> a little dark, airy room.
-// The rise plays while the old mix stays as it is; the peak snaps to the next half beat; there the new layers come in
-// while the noise falls. Three subtle variants take turns. It joins the music after the section filter and the pump, so it
-// never pumps, and it rides the music fader, so the wave button and the hidden tab cover it too. Peak about the choir's
-// level in the drum sections, about 3 dB below it. One sweep at a time: a change during the rise moves the landing to the newest
-// section on the same peak; a change during the fall fades the old sweep in 0.25 s and starts a new one.
-const FXV = [
-  { lo: 260, hi: 1500, q: 0.8, down: 1.35, wet: 0.35, g: 0.176 },
-  { lo: 220, hi: 1300, q: 0.65, down: 1.5, wet: 0.45, g: 0.143 },
-  { lo: 300, hi: 1700, q: 1.0, down: 1.2, wet: 0.3, g: 0.211 },
-];
-const FX_RISE = 1.05;            // shortest rise; snapping to the next half beat makes it 1.05-1.48 s
-let fx = null, fxN = 0, fxPink = null, fxBus = null, fxConv = null;
-const fxLog = [];
-const fxNote = (s) => { if (!DEBUG) return; fxLog.push(ctx.currentTime.toFixed(1) + 's ' + s); if (fxLog.length > 4) fxLog.shift(); };
-function fxSetup() {
-  if (fxBus) return;
-  const sr = ctx.sampleRate, n = Math.round(sr * 2), m = Math.round(sr * 1.1), pre = 0.015;
-  // 2 s of looping pink noise: the filter runs over the same white noise twice, so the loop point is seamless
-  fxPink = ctx.createBuffer(2, n, sr);
-  for (let ch = 0; ch < 2; ch++) {
-    const d = fxPink.getChannelData(ch); let b0 = 0, b1 = 0, b2 = 0, s = 0;
-    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
-    for (let pass = 0; pass < 2; pass++) for (let i = 0; i < n; i++) {
-      const w = pass ? d[i] : d[i]; b0 = 0.99765 * b0 + w * 0.099046; b1 = 0.963 * b1 + w * 0.2965164; b2 = 0.57 * b2 + w * 1.0526913;
-      if (pass) { d[i] = b0 + b1 + b2 + w * 0.1848; s += d[i] * d[i]; }
-    }
-    const k = 0.25 / Math.sqrt(s / n); for (let i = 0; i < n; i++) d[i] *= k;
-  }
-  // a short, dark, airy room (1.1 s, 15 ms pre-delay)
-  const ir = ctx.createBuffer(2, m, sr), a = Math.exp(-2 * Math.PI * 1200 / sr);
-  for (let ch = 0; ch < 2; ch++) {
-    const d = ir.getChannelData(ch); let y = 0, e = 0;
-    for (let i = 0; i < m; i++) {
-      const t = i / sr - pre, x = t < 0 ? 0 : (Math.random() * 2 - 1) * Math.exp(-t / 0.22) * Math.min(1, t / 0.02);
-      y = (1 - a) * x + a * y; d[i] = y; e += y * y;
-    }
-    const k = 1 / Math.sqrt(e); for (let i = 0; i < m; i++) d[i] *= k;
-  }
-  fxConv = ctx.createConvolver(); fxConv.normalize = false; fxConv.buffer = ir; fxConv.connect(mus.gain);
-  fxBus = ctx.createGain(); fxBus.connect(mus.gain);
-}
-// the swell and fade as one curve: eases up to g at the peak (smoothstep^1.5), then eases down to 0 (raised cosine^1.5)
-function fxCurve(g, rise, down) {
-  const n = 160, c = new Float32Array(n), T = rise + down;
-  for (let i = 0; i < n; i++) {
-    const t = (i / (n - 1)) * T;
-    if (t < rise) { const x = t / rise, s = x * x * (3 - 2 * x); c[i] = g * Math.pow(s, 1.5); }
-    else c[i] = g * Math.pow(0.5 * (1 + Math.cos(Math.PI * Math.min(1, (t - rise) / down))), 1.5);
-  }
-  return c;
-}
-function fxStop(t) {
-  if (!fx || t >= fx.end) return;
-  const g = fx.env.gain;
-  if (g.cancelAndHoldAtTime) g.cancelAndHoldAtTime(t); else { const v = g.value; g.cancelScheduledValues(t); g.setValueAtTime(v, t); }
-  g.setTargetAtTime(0, t, 0.08); fx.src.stop(t + 0.5); fx.end = t;
-}
-function fxStart(t, from, to) {
-  fxSetup(); fxStop(t);
-  const vi = fxN % FXV.length, v = FXV[vi], hb = BEAT / 2;
-  const peak = mus.when + Math.ceil((t + FX_RISE - mus.when) / hb) * hb, rise = peak - t, end = peak + v.down;
-  const src = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), l1 = ctx.createBiquadFilter(), l2 = ctx.createBiquadFilter(),
-    hp = ctx.createBiquadFilter(), env = ctx.createGain(), wet = ctx.createGain();
-  src.buffer = fxPink; src.loop = true;
-  bp.type = 'bandpass'; bp.Q.value = v.q;
-  bp.frequency.setValueAtTime(v.lo, t); bp.frequency.exponentialRampToValueAtTime(v.hi, peak); bp.frequency.exponentialRampToValueAtTime(v.lo * 0.85, end);
-  l1.type = 'lowpass'; l2.type = 'lowpass'; l1.frequency.value = l2.frequency.value = 1800; l1.Q.value = l2.Q.value = -3;
-  hp.type = 'highpass'; hp.frequency.value = 140; hp.Q.value = -3;
-  env.gain.value = 0; env.gain.setValueCurveAtTime(fxCurve(v.g, rise, v.down), t, rise + v.down);
-  wet.gain.value = v.wet;
-  src.connect(bp); bp.connect(l1); l1.connect(l2); l2.connect(hp); hp.connect(env); env.connect(fxBus); env.connect(wet); wet.connect(fxConv);
-  src.start(t, Math.random() * 2); src.stop(end + 0.05);
-  const me = { n: ++fxN, start: t, peak, end, src, env };
-  src.onended = () => { [src, bp, l1, l2, hp, env, wet].forEach((x) => x.disconnect()); if (fx === me) fx = null; };
-  fx = me;
-  fxNote(`#${me.n} v${vi + 1} ${from} > ${to}  rise ${rise.toFixed(2)}s down ${v.down}s`);
-  return peak;
-}
-function mixTo(name, now) {
-  const from = scene; scene = name;
-  if (!mus || !mus.ready) return;                                     // nothing before the first tap
-  const t = ctx.currentTime;
-  if (now) return land(name, t, t, 'now');
-  if (muted || ctx.state !== 'running') { fxStop(t); return land(name, t, t, 'slow'); }
-  if (fx && t < fx.peak - 0.08) { land(name, t, fx.peak, 'fx'); fxNote(`#${fx.n} still rising: lands on ${name}`); return; }
-  land(name, t, fxStart(t, from, name), 'fx');
-}
 let musWait = false;
 function music() {
   if (!ctx || muted || document.hidden || ctx.state !== 'running') return;
   if (mus) { musFade(MUSIC, 1.6); return; }
-  // the stems' fetch and decode wait until the hero intro has landed, so they never compete with it on the main thread
+  // the fetch and decode wait until the hero intro has landed, so they never compete with it on the main thread
   if (window.__introDone && !window.__introIsDone) { if (!musWait) { musWait = true; window.__introDone.then(() => { musWait = false; music(); }); } return; }
-  mus = { gain: ctx.createGain(), duck: ctx.createGain(), lp: ctx.createBiquadFilter(), st: [], amt: [], ready: false };
-  mus.lp.type = 'lowpass'; mus.lp.Q.value = 0.5; mus.lp.frequency.value = MIX[scene].lp;
-  mus.gain.gain.value = 0; mus.lp.connect(mus.gain); mus.gain.connect(mus.duck); mus.duck.connect(ctx.destination);
+  mus = { gain: ctx.createGain(), duck: ctx.createGain(), ready: false };
+  mus.gain.gain.value = 0; mus.gain.connect(mus.duck); mus.duck.connect(ctx.destination);
   const opus = !!document.createElement('audio').canPlayType('audio/ogg; codecs="opus"');
-  // fetch all seven at once, then decode them one at a time (lower peak memory on a 1 GB phone)
-  let chain = Promise.resolve();
-  const load = (i, ext) => {
-    const d = dbg.stems[i]; d.ext = ext; d.st = 'loading'; d.err = '';
-    const got = fetch(`./media/bgm-${STEMS[i]}.${ext}`).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
-      .then((b) => { d.kb = Math.round(b.byteLength / 1024); d.st = 'loaded'; return b; });
-    const dec = chain.then(() => got).then((b) => new Promise((res, rej) => { d.st = 'decoding'; ctx.decodeAudioData(b, res, (e) => rej(e || new Error('decode failed'))); }))
-      .then((buf) => { d.st = 'decoded'; d.dur = buf.duration; d.ch = buf.numberOfChannels; return buf; },
-        (e) => { d.st = 'failed'; d.err = String((e && e.message) || e); throw e; });
-    chain = dec.catch(() => {});
-    return dec;
+  const load = (ext) => {
+    dbg.ext = ext; dbg.st = 'loading'; dbg.err = '';
+    return fetch(`./media/bgm.${ext}`).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then((b) => { dbg.kb = Math.round(b.byteLength / 1024); dbg.st = 'decoding'; return new Promise((res, rej) => ctx.decodeAudioData(b, res, (e) => rej(e || new Error('decode failed')))); })
+      .then((buf) => { dbg.st = 'decoded'; dbg.dur = buf.duration; dbg.ch = buf.numberOfChannels; return buf; },
+        (e) => { dbg.st = 'failed'; dbg.err = String((e && e.message) || e); throw e; });
   };
-  const all = (ext) => { chain = Promise.resolve(); return Promise.all(STEMS.map((n, i) => load(i, ext))); };
   let mp3 = !opus;
-  (opus ? all('ogg').catch(() => { mp3 = true; return all('mp3'); }) : all('mp3')).then((bufs) => {
-    // MP3 decoders may add a little silence at the start; the pads never go silent, so skip to their first sound
-    let off = 0;
-    if (mp3) for (let i = 0, d0 = bufs[0].getChannelData(0), lim = Math.min(d0.length, Math.floor(bufs[0].sampleRate * 0.25)); i < lim; i++) {
-      if (Math.abs(d0[i]) > 1e-4) { off = i / bufs[0].sampleRate; break; }
+  (opus ? load('ogg').catch(() => { mp3 = true; return load('mp3'); }) : load('mp3')).then((buf) => {
+    // some MP3 decoders add a little silence at the start: skip it
+    let off = PRE;
+    if (mp3) for (let i = 0, d0 = buf.getChannelData(0), lim = Math.min(d0.length, Math.floor(buf.sampleRate * 0.25)); i < lim; i++) {
+      if (Math.abs(d0[i]) > 1e-4) { off = PRE + i / buf.sampleRate; break; }
     }
-    const drum = (i) => i === KI || STEMS[i] === 'perc';
-    const end = Math.min(off + LOOP, ...bufs.filter((b, i) => !drum(i)).map((b) => b.duration)), when = ctx.currentTime + 0.12;
-    const pump = ctx.createBufferSource(); pump.buffer = pumpBuffer(); pump.loop = true; pump.loopEnd = DLOOP;
-    mus.an = [];
-    bufs.forEach((buf, i) => {
-      const g = ctx.createGain(); g.gain.value = MIX[scene].g[i]; mus.st.push(g);
-      if (PUMP[i]) {                       // stem -> voicing -> pump gain (1 + depth * curve) -> section gain
-        const pg = ctx.createGain(), amt = ctx.createGain(); pg.gain.value = 1;
-        amt.gain.value = PUMP[i] * MIX[scene].p; pump.connect(amt); amt.connect(pg.gain); mus.amt.push([i, amt]);
-        pg.connect(g);
-        g.connect(mus.lp);
-        g.inp = pg;
-      } else { g.connect(mus.lp); g.inp = g; }
-      const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.loopStart = off; src.loopEnd = drum(i) ? Math.min(off + DLOOP, buf.duration) : end;
-      src.connect(voice(STEMS[i], g.inp)); src.start(when, off);
-      if (DEBUG) { const a = ctx.createAnalyser(); a.fftSize = 512; g.connect(a); mus.an.push(a); }
-      dbg.stems[i].st = 'playing';
-    });
-    pump.start(when, 0);
-    mus.when = when; mus.mp3 = mp3;
-    mus.ready = true; mixTo(scene, true);
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    src.loopStart = off; src.loopEnd = Math.min(off + LOOP, buf.duration);
+    src.connect(mus.gain); src.start(ctx.currentTime + 0.05, off);
+    if (DEBUG) { mus.an = ctx.createAnalyser(); mus.an.fftSize = 512; mus.gain.connect(mus.an); }
+    dbg.st = 'playing'; mus.mp3 = mp3; mus.ready = true;
     if (!muted) musFade(MUSIC, 3);
-  }).catch((e) => { dbg.note = 'music failed: ' + String((e && e.message) || e); mus = null; });
+  }).catch((e) => { dbg.st = 'failed'; dbg.err = String((e && e.message) || e); mus = null; });
 }
 if (DEBUG) {
   const box = document.createElement('pre'); box.id = 'audiodebug';
@@ -346,24 +115,16 @@ if (DEBUG) {
   const buf = new Float32Array(512);
   const level = (a) => { a.getFloatTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i]; const r = Math.sqrt(s / buf.length); return r > 1e-6 ? (20 * Math.log10(r)).toFixed(0) + ' dB' : 'silent'; };
   const state = () => ({
-    ctx: ctx ? ctx.state : 'none', sr: ctx ? ctx.sampleRate : 0, muted, scene, ready: !!(mus && mus.ready),
-    music: mus ? +mus.gain.gain.value.toFixed(4) : 0, lp: mus ? Math.round(mus.lp.frequency.value) : 0, codec: mus && mus.ready ? (mus.mp3 ? 'mp3' : 'opus') : '',
-    stems: dbg.stems.map((d, i) => ({ n: d.n, st: d.st, kb: d.kb, dur: +d.dur.toFixed(1), ch: d.ch, err: d.err,
-      gain: mus && mus.ready ? +mus.st[i].gain.value.toFixed(3) : null,
-      pump: mus && mus.ready && PUMP[i] ? mus.amt.find(([j]) => j === i)[1].gain.value.toFixed(2) : null,
-      level: mus && mus.ready && mus.an[i] ? level(mus.an[i]) : '' })),
-    note: dbg.note,
-    fx: { now: !fx || !ctx ? 'idle' : ctx.currentTime < fx.peak ? 'rising' : ctx.currentTime < fx.end ? 'falling' : 'idle', log: fxLog.slice() },
+    ctx: ctx ? ctx.state : 'none', sr: ctx ? ctx.sampleRate : 0, muted, ready: !!(mus && mus.ready),
+    music: mus ? +mus.gain.gain.value.toFixed(4) : 0, codec: mus && mus.ready ? (mus.mp3 ? 'mp3' : 'opus') : '',
+    track: { n: 'bgm', st: dbg.st, kb: dbg.kb, dur: +dbg.dur.toFixed(1), ch: dbg.ch, err: dbg.err, level: mus && mus.an ? level(mus.an) : '' },
   });
   window.__audioState = state;
-  const pad = (s, n) => (String(s) + ' '.repeat(n)).slice(0, n);
   setInterval(() => {
-    const s = state();
-    const head = `audio ${s.ctx} ${s.sr} Hz ${s.codec}${s.muted ? ' MUTED' : ''}\nsection ${s.scene}  music ${s.music}  lp ${s.lp} Hz\n` +
-      pad('stem', 7) + pad('state', 10) + pad('kb', 5) + pad('gain', 6) + pad('pump', 5) + 'level';
-    const rows = s.stems.map((d) => pad(d.n, 7) + pad(d.st, 10) + pad(d.kb || '', 5) + pad(d.gain == null ? '' : d.gain, 6) + pad(d.pump == null ? '' : d.pump, 5) + d.level + (d.err ? ' ' + d.err : ''));
-    const fxl = ['fx ' + s.fx.now + ' (section sweeps)', ...s.fx.log.map((l) => '  ' + l)];
-    box.textContent = [head, ...rows, ...fxl, s.note].filter(Boolean).join('\n') + (s.ctx === 'none' ? '\ntap anywhere to start sound' : '');
+    const s = state(), d = s.track;
+    box.textContent = `audio ${s.ctx} ${s.sr} Hz ${s.codec}${s.muted ? ' MUTED' : ''}\nmusic ${s.music}\n` +
+      `bgm ${d.st} ${d.kb ? d.kb + ' kb' : ''} ${d.dur ? d.dur + ' s' : ''} ${d.level}${d.err ? ' ' + d.err : ''}` +
+      (s.ctx === 'none' ? '\ntap anywhere to start sound' : '');
   }, 250);
 }
 // a UI sound dips the music a little, then lets it back up
@@ -372,22 +133,6 @@ function duck() {
   const t = ctx.currentTime; if (t - duckT < 0.1) return; duckT = t;
   const g = mus.duck.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t);
   g.linearRampToValueAtTime(0.7, t + 0.05); g.setTargetAtTime(1, t + 0.15, 0.3);
-}
-// which section is in the middle of the screen (a thin band at the center; no scroll handler).
-// The dark footer sits at the very bottom, so it counts once a third of it is open.
-if (window.IntersectionObserver) {
-  const secs = [...document.querySelectorAll('section')];
-  const map = [[document.querySelector('.hero'), 'hero'], [secs[0], 'rule'], [secs[1], 'cost'], [secs[2], 'noise'],
-    [secs[3], 'budget'], [document.querySelector('.close'), 'close']].filter(([el]) => el);
-  const on = new Set(); let foot = false, mid = scene;
-  const pick = () => { const n = foot ? 'footer' : mid; if (n !== scene) mixTo(n); };
-  const o = new IntersectionObserver((es) => {
-    es.forEach((e) => { const n = map.find(([el]) => el === e.target)[1]; e.isIntersecting ? on.add(n) : on.delete(n); });
-    mid = map.map(([, n]) => n).filter((n) => on.has(n)).pop() || mid; pick();
-  }, { rootMargin: '-45% 0px -45% 0px' });
-  map.forEach(([el]) => o.observe(el));
-  const fs = document.querySelector('.foot-space');
-  if (fs) new IntersectionObserver((es) => { foot = es[es.length - 1].intersectionRatio >= 0.33; pick(); }, { threshold: [0, 0.33] }).observe(fs);
 }
 
 // a sound may start when the context runs, or inside the gesture that is unlocking it right now
