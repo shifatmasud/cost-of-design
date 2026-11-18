@@ -1,4 +1,4 @@
-// Sound: tiny UI sounds, all made live with the Web Audio API, plus distant ambient background music in seven synced
+// Sound: tiny UI sounds made live with Web Audio, recorded knocks and 3D taps, plus ambient background music in seven synced
 // stems (media/bgm-*.ogg, mp3 fallback) that follows the section in view.
 // The page's own idea, applied to sound: every sound has a cost, so each one is short, quiet and warm.
 // - One shared AudioContext. Sound is ON by default; a visitor's own "off" is saved in localStorage.
@@ -41,7 +41,7 @@ function build() {
   const d = noiseBuf.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
 }
 // the first gesture: build the context and resume it; try again on each gesture until it runs
-function unlock() {
+function unlock(e) {
   gesture = true; gestureT = performance.now();
   setTimeout(() => { gesture = false; }, 0);
   if (document.hidden) return;
@@ -49,7 +49,9 @@ function unlock() {
   if (ctx && ctx.state !== 'running') { const p = ctx.resume(); if (p && p.then) p.then(music, () => {}); }
   else if (ctx && !mus) music();
   // the knock sounds: fetched once, after the hero intro (about 4 s in), or sooner on the first hit
-  if (ctx && !impBufs && !impLoading && !impT) impT = setTimeout(() => loadImpacts(), Math.max(0, 4000 - performance.now()));
+  if (ctx && !impBufs && !impLoading && !impT) impT = setTimeout(() => { loadImpacts(); loadTaps(); }, Math.max(0, 4000 - performance.now()));
+  // the 3D tap sounds: at once when the first tap lands on a 3D scene, so it can be heard
+  if (ctx && !tapBufs && e && e.target && e.target.closest && e.target.closest('[data-view]')) loadTaps();
 }
 let impT = 0;
 ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach((t) => document.addEventListener(t, unlock, { capture: true, passive: true }));
@@ -472,6 +474,57 @@ function impact({ speed = 2, size = 0.45, mat = 'wood', x = null, id = null }) {
   s.start(t); s.stop(t + s.buffer.duration / s.playbackRate.value + 0.02);
 }
 
+// ---------- 3D taps: real recorded sounds, no synth ----------
+// Touching a 3D scene (press, tap, grab, drag, let go) plays short recorded foley from Kenney "Impact Sounds"
+// (CC0; see media/TAPS.md): soft felt thumps, light knuckle knocks and a soft cloth brush. Trimmed tight (70 to 150 ms),
+// no reverb, low-passed at 5.5 kHz, quiet. One tiny sprite, media/taps.ogg (Opus, 12 KB) or taps.mp3 (27 KB), one sound
+// every 0.4 s. Loaded on the first tap on a 3D scene, else after the hero intro with the knocks. If a 3D tap comes
+// before it is ready, that one sound plays as soon as it lands (if within 250 ms). The UI sounds stay as they are.
+// Pairs: press is a deeper felt thump, its tap a lighter knock; grab is a felt grip, its let-go a lighter soft brush.
+// Each action picks one of 2 or 3 variants (never the same twice in a row), with a random +-3% pitch.
+const TAP_SLOT = 0.4, TAP_DUR = [0.15, 0.15, 0.15, 0.091, 0.089, 0.09, 0.13, 0.13, 0.07, 0.071, 0.068];
+const TAP_SET = { press: [0, 1, 2], tap: [3, 4, 5], grab: [6, 7], release: [8, 9, 10], drag: [8, 9, 10] };
+const TAP_GAIN = { press: 0.055, tap: 0.045, grab: 0.045, release: 0.035, drag: 0.02 };
+let tapBufs = null, tapLoading = false, tapWant = null;
+const tapLast = {};
+function loadTaps() {
+  if (tapBufs || tapLoading || !ctx || muted) return;
+  tapLoading = true;
+  const opus = !!document.createElement('audio').canPlayType('audio/ogg; codecs="opus"');
+  const get = (ext) => fetch(`./media/taps.${ext}`).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+    .then((b) => new Promise((res, rej) => ctx.decodeAudioData(b, res, (e) => rej(e || new Error('decode failed')))));
+  (opus ? get('ogg').catch(() => get('mp3')) : get('mp3')).then((sp) => {
+    const sr = sp.sampleRate, d = sp.getChannelData(0);
+    tapBufs = TAP_DUR.map((dur, i) => {
+      const s0 = Math.floor(i * TAP_SLOT * sr), s1 = Math.min(d.length, Math.floor((i * TAP_SLOT + 0.32) * sr));
+      let pk = 0; for (let j = s0; j < s1; j++) pk = Math.max(pk, Math.abs(d[j]));
+      let on = s0; while (on < s1 && Math.abs(d[on]) < pk * 0.04) on++;
+      on = Math.max(s0, on - Math.floor(0.002 * sr));
+      const n = Math.min(Math.floor((dur + 0.008) * sr), d.length - on), b = ctx.createBuffer(1, n, sr);
+      b.getChannelData(0).set(d.subarray(on, on + n));
+      return b;
+    });
+    const w = tapWant; tapWant = null;
+    if (w && performance.now() - w.t < 250) tap3(w.kind, w.o);
+  }, () => { tapLoading = false; tapWant = null; });
+}
+function tap3(kind, { level = 1, rate = 1, x = null } = {}) {
+  if (!ready()) return;
+  if (!tapBufs) { tapWant = { kind, o: { level, rate, x }, t: performance.now() }; loadTaps(); return; }
+  const set = TAP_SET[kind]; let vi = set[Math.floor(Math.random() * set.length)];
+  if (vi === tapLast[kind] && set.length > 1) vi = set[(set.indexOf(vi) + 1 + Math.floor(Math.random() * (set.length - 1))) % set.length];
+  tapLast[kind] = vi;
+  const s = ctx.createBufferSource(), v = ctx.createGain(), g = TAP_GAIN[kind] * level * (0.92 + Math.random() * 0.16);
+  s.buffer = tapBufs[vi]; s.playbackRate.value = rate * (1 + (Math.random() * 2 - 1) * 0.03);
+  v.gain.value = g; s.connect(v);
+  if (x != null && ctx.createStereoPanner) {
+    const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, (x / innerWidth) * 2 - 1)) * 0.5;
+    v.connect(p); p.connect(out);
+  } else v.connect(out);
+  s.start(); s.stop(ctx.currentTime + s.buffer.duration / s.playbackRate.value + 0.02);
+  if (g >= 0.045) duck();
+}
+
 // pentatonic scale for letters: a soft, always-in-tune run
 const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19];
 const note = (base, i) => base * Math.pow(2, PENTA[i % PENTA.length] / 12);
@@ -524,9 +577,13 @@ const S = {
   zip() { if (!ready() || !gate('zip', 200) || !take(0.3)) return; air({ f: vary(900), f2: 3200, q: 2, g: 0.03, a: 0.08, dur: 0.28, peak: 0.85 }); },
   // the band slowing down: a low soft brake
   brake() { if (!ready() || !gate('brake', 600) || !take(0.4)) return; tone({ f: vary(260), f2: 150, type: 'triangle', g: 0.04, a: 0.02, dur: 0.35, glide: 0.3 }); },
-  // a 3D toy pressed: a soft squish; tapped: a bouncy boop
-  squish() { if (!ready() || !gate('squish', 70) || !take(0.12)) return; tone({ f: vary(300), f2: 180, g: 0.08, dur: 0.1, glide: 0.08 }); },
-  boop() { if (!ready() || !gate('boop', 70) || !take(0.2)) return; const f = vary(360, 0.08); tone({ f, f2: f * 1.8, g: 0.09, dur: 0.14, glide: 0.05 }); tone({ f: f * 1.8, f2: f * 1.5, g: 0.03, dur: 0.12, at: 0.06 }); }
+  // a 3D scene pressed: a soft felt thump; tapped: a lighter knuckle knock (real recordings, see tap3)
+  squish(x = null) { if (!ready() || !gate('squish', 70) || !take(0.18)) return; tap3('press', { x }); },
+  boop(x = null) { if (!ready() || !gate('boop', 70) || !take(0.14)) return; tap3('tap', { x, rate: 1.04 }); },
+  // a 3D object grabbed: a felt grip; dragged: a faint cloth brush, louder when faster; let go: a light soft brush
+  grab3(x = null) { if (!ready() || !gate('grab3', 80) || !take(0.16)) return; tap3('grab', { x }); },
+  drag3(speed) { if (!ready() || !gate('drag3', 110) || !take(0.1)) return; const k = Math.min(1, speed / 30); tap3('drag', { level: 0.45 + 0.55 * k, rate: 1.04 + 0.14 * k }); },
+  release3(x = null) { if (!ready() || !gate('release3', 80) || !take(0.1)) return; tap3('release', { x, rate: 1.03 }); }
 };
 window.__sound = S;
 
@@ -630,26 +687,26 @@ document.querySelectorAll('a').forEach((a) => {
 // keyboard focus: a quiet tick
 document.addEventListener('focusin', (e) => { const t = e.target; if (t && t.matches && t.matches(':focus-visible')) S.tick(0.7); });
 
-// 3D scenes: a soft squish on press, a bouncy boop on tap
+// 3D scenes: a soft felt thump on press, a light knock on tap (recorded; the hover bloop and the brush stay as they are)
 document.querySelectorAll('[data-view]').forEach((el) => {
   let sx = 0, sy = 0, st = 0;
-  const start = (x, y) => { sx = x; sy = y; st = performance.now(); S.squish(); };
-  const end = (x, y) => { if (Math.hypot(x - sx, y - sy) < 8 && performance.now() - st < 450) S.boop(); };
+  const start = (x, y) => { sx = x; sy = y; st = performance.now(); S.squish(x); };
+  const end = (x, y) => { if (Math.hypot(x - sx, y - sy) < 8 && performance.now() - st < 450) S.boop(x); };
   el.addEventListener('pointerdown', (e) => { if (mouse(e) && e.button === 0) start(e.clientX, e.clientY); }, { passive: true });
   el.addEventListener('pointerup', (e) => { if (mouse(e)) end(e.clientX, e.clientY); }, { passive: true });
   el.addEventListener('touchstart', (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; st = performance.now(); }, { passive: true });
-  el.addEventListener('touchend', (e) => { const t = e.changedTouches[0]; if (Math.hypot(t.clientX - sx, t.clientY - sy) < 10 && performance.now() - st < 450) { S.squish(); setTimeout(() => S.boop(), 40); } }, { passive: true });
-  // hover: a soft bloop; grab a model: stretch, drag: creak, let go: springy wobble; slide across: brush
+  el.addEventListener('touchend', (e) => { const t = e.changedTouches[0]; if (Math.hypot(t.clientX - sx, t.clientY - sy) < 10 && performance.now() - st < 450) { const x = t.clientX; S.squish(x); setTimeout(() => S.boop(x), 40); } }, { passive: true });
+  // hover: a soft bloop; grab a model: felt grip, drag: faint cloth brush, let go: light soft brush (recorded); slide across: brush
   hover(el, () => S.hum());
   let held = false, lx = 0, ly = 0, lt = 0;
   const view = () => (window.__views || []).find((v) => v.el === el);
   const mv = (x, y) => {
     const t = performance.now(), sp = Math.hypot(x - lx, y - ly) / Math.max(1, t - lt) * 16; lx = x; ly = y; lt = t;
     const v = view(), g = !!(v && v.inp.down && v.inp.grab);
-    if (g && !held) { held = true; S.stretch(); }
-    if (g) { if (sp > 1.5) S.creak(sp); } else if (sp > 1.5) S.brush(sp);
+    if (g && !held) { held = true; S.grab3(x); }
+    if (g) { if (sp > 1.5) S.drag3(sp); } else if (sp > 1.5) S.brush(sp);
   };
-  const release = () => { if (held) { held = false; S.spring(); } };
+  const release = () => { if (held) { held = false; S.release3(lx); } };
   el.addEventListener('pointermove', (e) => { if (!mouse(e)) return; if (e.buttons & 1) mv(e.clientX, e.clientY); else { lx = e.clientX; ly = e.clientY; lt = performance.now(); } }, P);
   el.addEventListener('touchstart', (e) => { const t = e.touches[0]; if (t) { lx = t.clientX; ly = t.clientY; lt = performance.now(); } }, P);
   el.addEventListener('touchmove', (e) => { const t = e.touches[0]; if (t) mv(t.clientX, t.clientY); }, P);
