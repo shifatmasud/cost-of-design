@@ -6,9 +6,9 @@
 //   and that first interaction plays its own sound right away.
 // - Low master volume, a soft limiter, a little random pitch on every sound, throttles and a voice cap so fast repeats never stack.
 // - Muted while the tab is hidden. With reduced motion, the scroll-driven sounds are dropped.
-// - Background music: airy pads, a soft girl choir (bed and melody), vocal chops, a calm sparse drum groove in two stems
-//   (kick: punchy, short, dry, only in the drop, section 03; perc: finger snaps as the snare and a push-pull shaker groove,
-//   in a small room) and a warm reese bass, the rest far
+// - Background music: airy pads, a soft girl choir (bed and melody), vocal chops, a calm, hypnotic drum groove in two stems,
+//   one bar repeated exactly (kick: soft, short, dry, on 1 and 3, only in the drop, section 03; perc: soft snaps on 2 and 4,
+//   a steady breathing 16th shaker and a muted low wood 3-3-2 ostinato, in a small room) and a warm reese bass, the rest far
 //   back in a long dark hall, highs rolled off. Mix order on a speaker: drums, bass, chops, choir, pads (quietest). Rendered
 //   offline as seven same-length stems (70 BPM, 18 bars, seamless). The kick gently pumps the bass, pads and choir.
 //   Each section change plays one soft, dark noise rise and fall; the new layers come in on its way down. Loaded only
@@ -61,9 +61,9 @@ document.addEventListener('visibilitychange', () => {
 
 // ---------- background music: seven synced stems that follow the section in view ----------
 // Ambient, 70 BPM, 18 bars (61.7 s), seamless. Stems: airy pads and choir in a long dark hall, choir melody, vocal chops
-// (every other 2 bars), kick (1 and 3,
-// the swung 'and' of 3 every 2nd bar), perc (snaps on 2 and 4, shaker on a gently swung 16th grid: accents on the 'and's,
-// a soft pull after them, rare ghosts, a small fill every 4th bar; odd bars have a snap on 4 only) and a soft, round
+// (every other 2 bars), kick (soft, on 1 and 3), perc (soft snaps on 2 and 4; a steady 16th shaker on every beat:
+// soft, softer, accent on the 'and', soft pull, very lightly swung; a muted low wood ostinato in 3-3-2 from real CC0
+// wood knocks, very low). One bar that repeats exactly: no fills, no alternating bars, no ghosts (hypnotic). A soft, round
 // reese bass. All seven start
 // on one AudioContext clock at the same time, so they stay locked. An IntersectionObserver picks the section in the middle
 // of the screen. Section change: a soft noise rise plays first while the old mix stays; its peak lands on the beat, and
@@ -101,18 +101,18 @@ VOICE.perc = VOICE.kick;                           // same voicing as the old si
 // whole mix is about 2-4 dB quieter. In the drop the kick comes in 1.5 dB under the perc, a soft lift, not a slam.
 const MIX = {
   hero:   { g: [0.293, 0.32, 0, 0, 0, 0, 2.047], lp: 2000, p: 0 },  // bass, then choir, then pads
-  rule:   { g: [0.155, 0.169, 0.16, 1.2, 0, 0.176, 1.507], lp: 2300, p: 0 },  // 01: one rule for every sense, light perc
-  cost:   { g: [0.144, 0.157, 0, 1.125, 0, 0.161, 1.392], lp: 2600, p: 0 },  // 02: two kinds of cost, perc
-  noise:  { g: [0.137, 0.149, 0, 1.063, 0.579, 0.151, 1.334], lp: 2900, p: 1 },  // 03: noise vs intent, the drop: kick + pump
-  budget: { g: [0.191, 0.199, 0.237, 1.515, 0, 0.215, 1.839], lp: 3200, p: 0 },  // 04: budget, brightest, perc
+  rule:   { g: [0.155, 0.169, 0.16, 1.2, 0, 0.178, 1.507], lp: 2300, p: 0 },  // 01: one rule for every sense, light perc
+  cost:   { g: [0.144, 0.157, 0, 1.125, 0, 0.163, 1.392], lp: 2600, p: 0 },  // 02: two kinds of cost, perc
+  noise:  { g: [0.137, 0.149, 0, 1.063, 0.693, 0.153, 1.334], lp: 2900, p: 1 },  // 03: noise vs intent, the drop: kick + pump
+  budget: { g: [0.191, 0.199, 0.237, 1.515, 0, 0.217, 1.839], lp: 3200, p: 0 },  // 04: budget, brightest, perc
   close:  { g: [0.319, 0.348, 0.328, 0, 0, 0, 2.206], lp: 2200, p: 0 },  // spend with intent: bass, choir, pads
   footer: { g: [0.308, 0, 0, 0, 0, 0, 1.506], lp: 900, p: 0 },  // dark footer: bass over pads, soft swell
 };
 // sidechain: stem index -> duck depth at pump 1 (very gentle, half the old depth: about -2.2 dB bass, -1.3 dB pads,
 // -0.4 dB choir at the deepest)
 const PUMP = { 6: 0.225, 0: 0.14, 1: 0.05 };
-// kick hits in the loop: [time s, weight] (from the same render as bgm-kick: 1, 3, and the swung and-of-3 every 2nd bar)
-const HITS = [[0.003,0.99],[1.715,0.85],[3.428,0.95],[5.144,0.84],[5.622,0.52],[6.858,0.99],[8.571,0.84],[10.287,0.96],[12.0,0.84],[12.478,0.49],[13.714,0.96],[15.427,0.87],[17.142,0.95],[18.858,0.82],[19.338,0.51],[20.571,0.94],[22.287,0.84],[24.002,0.96],[25.713,0.87],[26.195,0.5],[27.43,0.99],[29.139,0.85],[30.856,0.96],[32.572,0.82],[33.049,0.52],[34.289,0.98],[35.999,0.83],[37.713,0.93],[39.427,0.85],[39.909,0.49],[41.145,0.99],[42.859,0.82],[44.569,1.0],[46.283,0.87],[46.767,0.5],[48.0,0.96],[49.715,0.82],[51.429,0.96],[53.142,0.84],[53.623,0.5],[54.856,0.99],[56.571,0.82],[58.288,0.94],[60.001,0.87],[60.479,0.52]];
+// kick hits in the loop: [time s, weight] (from the same render as bgm-kick: 1 and 3, every bar the same)
+const HITS = [[1.714,0.9],[3.428,0.9],[5.142,0.9],[6.857,0.9],[8.572,0.9],[10.286,0.9],[12.0,0.9],[13.714,0.9],[15.43,0.9],[17.143,0.9],[18.857,0.9],[20.571,0.9],[22.285,0.9],[23.999,0.9],[25.715,0.9],[27.428,0.9],[29.142,0.9],[30.857,0.9],[32.572,0.9],[34.285,0.9],[35.999,0.9],[37.714,0.9],[39.429,0.9],[41.143,0.9],[42.857,0.9],[44.572,0.9],[46.286,0.9],[48.0,0.9],[49.714,0.9],[51.428,0.9],[53.143,0.9],[54.857,0.9],[56.571,0.9],[58.286,0.9],[59.999,0.9],[61.713,0.9]];
 function pumpBuffer() {
   // a small mono curve at a low rate (3 kHz is plenty for a gain curve): 0 at rest, down to -1 on a full hit.
   // Each hit dips in 30 ms and lets go over about 2/3 of a beat (time constant 0.2 s at 70 BPM).
