@@ -21,7 +21,10 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
 body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:19px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden;font-feature-settings:"ss01"}
-#gl{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;display:block}
+body{position:relative}
+/* 3D layer: lives in the page and is moved to the viewport on each frame, so between frames it scrolls with the cards instead of lagging over the text */
+.gl-layer{position:absolute;left:0;top:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:5}
+#gl{position:absolute;left:0;top:0;width:100%;height:100vh;height:100lvh;display:block;will-change:transform}
 .wrap{max-width:1200px;margin:0 auto;padding:0 clamp(22px,4vw,48px)}
 header{display:flex;align-items:center;justify-content:space-between;padding:28px 0}
 .mark{display:flex;align-items:center;gap:12px;font-weight:600;font-size:17px}
@@ -32,7 +35,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:28p
 .hero{display:grid;grid-template-columns:1fr 1fr;gap:clamp(40px,6vw,88px);align-items:center;padding:clamp(40px,7vw,96px) 0 clamp(96px,11vw,150px);min-height:min(86vh,860px)}
 h1{font-weight:600;font-size:clamp(46px,6vw,80px);line-height:1.02;letter-spacing:-.035em;margin:28px 0 28px}
 h1 .w{display:inline-block}
-h1 em{font-style:normal;background:linear-gradient(transparent 64%,var(--yellow) 64% 90%,transparent 90%)}
+h1 em{font-style:normal;font-weight:700;display:inline-block;font-size:1.06em;letter-spacing:0;padding:0 .04em 0 .02em;white-space:nowrap}
+h1 em b{--f:#ffb8d6;--o:#d9468a;position:relative;display:inline-block;font-weight:700;color:var(--f);-webkit-text-stroke:.1em var(--o);paint-order:stroke fill;margin-left:-.07em;transform:translateY(var(--y,0)) rotate(var(--r,0deg))}
+h1 em b:first-child{margin-left:0}
+h1 em b::before{content:attr(data-l);position:absolute;left:0;top:0;z-index:-1;color:var(--o);-webkit-text-stroke:.16em var(--ink);paint-order:stroke fill;text-shadow:0 .08em .12em rgba(51,43,41,.18);pointer-events:none}
+h1 em b::after{content:attr(data-l);position:absolute;left:0;top:0;color:rgba(255,255,255,.85);-webkit-text-stroke:0;text-shadow:none;clip-path:inset(24% 50% 60% 18% round .08em);pointer-events:none}
+h1 em b:nth-child(1){--f:#ffc4de;--o:#ff4f9a;--r:-5deg;--y:.05em}h1 em b:nth-child(2){--f:#ffd9ad;--o:#ff8a1f;--r:4deg;--y:-.06em}h1 em b:nth-child(3){--f:#fff2a6;--o:#f2bd00;--r:-3deg;--y:.04em}h1 em b:nth-child(4){--f:#c6f3ba;--o:#36bb4b;--r:5deg;--y:-.05em}h1 em b:nth-child(5){--f:#c2e4ff;--o:#2d97f2;--r:-4deg;--y:.05em}h1 em b:nth-child(6){--f:#ddcdff;--o:#8a5cf5;--r:4deg;--y:-.04em}
 .lede{font-size:clamp(20px,1.8vw,23px);line-height:1.5;color:var(--muted);max-width:28ch}
 .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:40px}
 .view{position:relative;width:100%}
@@ -86,13 +94,13 @@ footer a{color:inherit}
 .js .reveal{opacity:0;transform:translateY(24px)}
 .js h1 .w{opacity:0;transform:translateY(20px)}
 @media (max-width:860px){.hero,.row,.close,.head{grid-template-columns:1fr}.hero{min-height:0;padding-top:24px;gap:48px}.hero .view{max-width:480px;width:100%;justify-self:center}.close .view{max-width:320px;order:-1}.head{gap:16px}.meters{grid-template-columns:1fr}.budget .view{max-width:340px;width:100%}.rule .view{max-width:440px;justify-self:center}}
-@media (max-width:620px){body{font-size:18px}:root{--r:28px;--gap:96px}.grid2{grid-template-columns:1fr}header{padding:20px 0}header .pill{padding:12px 18px;font-size:15px}h1{font-size:clamp(42px,12vw,54px)}h1 br{display:none}.hero .view{border-radius:36px}.band{padding:18px 0}.chips{margin-top:28px}}
+@media (max-width:620px){body{font-size:18px}:root{--r:28px;--gap:96px}.grid2{grid-template-columns:1fr}header{padding:20px 0}header .pill{padding:12px 18px;font-size:15px}h1{font-size:clamp(42px,12vw,54px)}.hero .view{border-radius:36px}.band{padding:18px 0}.chips{margin-top:28px}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.js .reveal,.js h1 .w{opacity:1;transform:none}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/","motion":"https://cdn.jsdelivr.net/npm/motion@14.14.0/+esm"}}</script>
 </head>
 <body>
-<canvas id="gl" aria-hidden="true"></canvas>
+<div class="gl-layer" aria-hidden="true"><canvas id="gl"></canvas></div>
 
 <div class="wrap">
 <header>
@@ -103,7 +111,7 @@ footer a{color:inherit}
 <div class="hero">
 <div>
 <span class="tag reveal">A note on design</span>
-<h1><span class="w">The</span> <span class="w"><em>cost</em></span><br> <span class="w">of</span> <span class="w">design</span></h1>
+<h1><span class="w">The</span> <span class="w">cost</span><br> <span class="w">of</span> <span class="w"><em><b data-l="d">d</b><b data-l="e">e</b><b data-l="s">s</b><b data-l="i">i</b><b data-l="g">g</b><b data-l="n">n</b></em></span></h1>
 <p class="lede reveal">Every element you add has a price. Good design is knowing what to spend it on.</p>
 <div class="cta reveal"><a class="pill" href="#rule">Read the idea</a></div>
 </div>
@@ -256,7 +264,12 @@ const toon = (c) => mats[c] || (mats[c] = new THREE.MeshToonMaterial({ color: c,
 const outlines = {};
 const outlineFor = (w) => { const k = w.toFixed(3); if (!outlines[k]) { outlines[k] = outlineBase.clone(); outlines[k].uniforms.w.value = w; } return outlines[k]; };
 const inkMat = new THREE.MeshBasicMaterial({ color: C.ink });
-const shadowMat = new THREE.MeshBasicMaterial({ color: C.ink, transparent: true, opacity: 0.1, depthWrite: false });
+// decals that sit on or just above another surface get pulled toward the camera in depth, so they never flicker
+const decal = (m, f, u) => Object.assign(m, { polygonOffset: true, polygonOffsetFactor: f, polygonOffsetUnits: u });
+const eyeMat = decal(new THREE.MeshBasicMaterial({ color: C.ink }), -1, -4);
+const irisMat = decal(new THREE.MeshToonMaterial({ color: C.teal, gradientMap: ramp }), -1, -2);
+const pupilMat = decal(new THREE.MeshBasicMaterial({ color: C.ink }), -2, -8);
+const shadowMat = decal(new THREE.MeshBasicMaterial({ color: C.ink, transparent: true, opacity: 0.1, depthWrite: false }), -1, -4);
 
 const G = {
   box: new RoundedBoxGeometry(1, 1, 1, 4, 0.2),
@@ -288,7 +301,7 @@ function blob(r, y) { const m = new THREE.Mesh(G.disc, shadowMat); m.rotation.x 
 // the recurring character: one calm orange cube with eyes
 function buddy(size, ph = 0) {
   const g = obj(G.box, C.orange, size, 0.035);
-  const eyes = [-0.2, 0.2].map((x) => { const e = new THREE.Mesh(G.eye, inkMat); e.position.set(x, 0.08, 0.505); e.scale.set(1, 1, 0.4); g.add(e); return e; });
+  const eyes = [-0.2, 0.2].map((x) => { const e = new THREE.Mesh(G.eye, eyeMat); e.position.set(x, 0.08, 0.508); e.scale.set(1, 1, 0.4); g.add(e); return e; });
   g.userData = { eyes, ph, lx: 0, ly: 0, squint: 1 };
   return g;
 }
@@ -313,7 +326,7 @@ const builders = {
     const root = new THREE.Group(); scene.add(root);
     const plinth = obj(G.plinth, C.white); plinth.position.y = -1.6; root.add(plinth);
     root.add(blob(1.75, -1.82));
-    const slab = obj(G.slab, C.yellow); slab.position.y = -0.95; root.add(slab);
+    const slab = obj(G.slab, C.yellow); slab.position.y = -0.945; root.add(slab);
     const b = buddy(1.0, 0.6); b.position.y = 0.0; root.add(b);
     const cap = obj(G.capsule, C.green, 0.62); cap.position.set(1.05, -0.81, 0.95); cap.rotation.z = -0.12; root.add(cap);
     const sph = obj(G.sphere, C.teal, 0.48); sph.position.set(-2.0, 1.25, 0.2); root.add(sph);
@@ -326,7 +339,7 @@ const builders = {
       sph.position.y = 1.25 + Math.sin(tt * 0.7) * 0.14;
       tor.position.y = 1.55 + Math.sin(tt * 0.6 + 2) * 0.12; tor.rotation.set(0.6 + tt * 0.25, tt * 0.35, 0);
       const a = tt * 0.55; moon.position.set(Math.cos(a) * 1.15, 0.85 + Math.sin(tt * 1.1) * 0.08, Math.sin(a) * 1.15);
-      b.scale.y = 1 + Math.sin(tt * 1.6) * 0.015; b.position.y = 0.0 + (b.scale.y - 1) * 0.5;
+      b.scale.y = 1 + Math.sin(tt * 1.6) * 0.015; b.position.y = 0.005 + (b.scale.y - 1) * 0.5;
       root.rotation.y = -0.35 + s.px * 0.4 + s.hero * 0.9;
       root.rotation.x = s.py * 0.12;
       root.position.y = 0.15 + s.hero * 0.6;
@@ -384,8 +397,8 @@ const builders = {
     const root = new THREE.Group(); scene.add(root);
     const eye = new THREE.Group(); root.add(eye);
     eye.add(obj(G.sphere, C.white, 1.05, 0.035));
-    const iris = new THREE.Mesh(G.iris, toon(C.teal)); iris.scale.setScalar(1.062); iris.rotation.x = Math.PI / 2; eye.add(iris);
-    const pupil = new THREE.Mesh(G.pupil, inkMat); pupil.scale.setScalar(1.07); pupil.rotation.x = Math.PI / 2; eye.add(pupil);
+    const iris = new THREE.Mesh(G.iris, irisMat); iris.scale.setScalar(1.062); iris.rotation.x = Math.PI / 2; eye.add(iris);
+    const pupil = new THREE.Mesh(G.pupil, pupilMat); pupil.scale.setScalar(1.07); pupil.rotation.x = Math.PI / 2; eye.add(pupil);
     root.add(blob(0.9, -1.55));
     const spots = [[-2.1, 1.05], [2.15, 0.85], [1.9, -1.15], [-2.0, -0.95]];
     const things = [[G.cone, C.coral], [G.torus, C.orange], [G.box, C.yellow], [G.capsule, C.green]].map(([g, c], i) => {
@@ -460,7 +473,7 @@ const builders = {
     const b = buddy(0.62, 0.9); b.position.set(xs[0], 0.47, 0); root.add(b);
     const sph = obj(G.sphere, C.teal, 0.3); sph.position.set(xs[1], 0.46, 0); root.add(sph);
     const cap = obj(G.capsule, C.green, 0.3); cap.position.set(xs[2], 0.46, 0); root.add(cap);
-    const room = new THREE.Mesh(G.ring, inkMat); room.rotation.x = -Math.PI / 2; room.scale.setScalar(0.3); room.position.set(xs[3], 0.17, 0); root.add(room);
+    const room = new THREE.Mesh(G.ring, inkMat); room.rotation.x = -Math.PI / 2; room.scale.setScalar(0.3); room.position.set(xs[3], 0.18, 0); root.add(room);
     const items = [b, sph, cap];
     const base = [0.47, 0.46, 0.445];
     return (t, cam, aspect) => {
@@ -477,7 +490,7 @@ const builders = {
     const root = new THREE.Group(); root.position.y = 0.05; scene.add(root);
     const pl = obj(G.small, C.white, 0.8); pl.position.y = -0.95; root.add(pl);
     root.add(blob(1.05, -1.1));
-    const b = buddy(1.05, 2.1); b.position.y = -0.29; root.add(b);
+    const b = buddy(1.05, 2.1); b.position.y = -0.285; root.add(b);
     const halo = new THREE.Mesh(G.ring, inkMat); halo.scale.setScalar(1.25); root.add(halo);
     const dot = obj(G.sphere, C.teal, 0.12); root.add(dot);
     return (t, cam) => {
@@ -497,8 +510,13 @@ const views = [...document.querySelectorAll('[data-view]')].map((el) => {
   const scene = new THREE.Scene(); stage(scene);
   const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 100); cam.position.z = 10;
   const update = builders[el.dataset.view](scene, cam);
-  return { el, scene, cam, update, on: false };
+  return { el, scene, cam, update, on: false, fade: el.closest('.reveal') };
 });
+// a full-view quad that multiplies the view's pixels by its card's opacity, so 3D fades in with its card instead of floating on a blank page
+const veilMat = new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.ZeroFactor, blendDst: THREE.SrcAlphaFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.SrcAlphaFactor });
+const veilScene = new THREE.Scene(); const veil = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), veilMat); veil.frustumCulled = false; veilScene.add(veil);
+const veilCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1); veilCam.position.z = 0.5;
+let lastY = -1;
 const io = new IntersectionObserver((es) => es.forEach((e) => { const v = views.find((x) => x.el === e.target); if (v) v.on = e.isIntersecting; }), { rootMargin: '120px 0px' });
 views.forEach((v) => io.observe(v.el));
 
@@ -514,6 +532,8 @@ let drew = true;
 function frame() {
   requestAnimationFrame(frame);
   const H = size();
+  const y = scrollY;
+  if (y !== lastY) { canvas.style.transform = `translate3d(0,${y}px,0)`; lastY = y; }
   const t = (performance.now() - t0) / 1000;
   const live = views.filter((v) => v.on);
   if (!live.length && !drew) return;
@@ -527,8 +547,16 @@ function frame() {
     renderer.setScissor(r.left, b, r.width, r.height);
     const aspect = r.width / r.height;
     v.update(t, v.cam, aspect);
+    // tight depth range around each small scene: keeps depth precise on phone GPUs, so outlines, eyes and contacts never fight
+    const dist = v.cam.position.length();
+    v.cam.near = Math.max(0.5, dist - 6); v.cam.far = dist + 8;
     v.cam.aspect = aspect; v.cam.lookAt(0, 0, 0); v.cam.updateProjectionMatrix();
     renderer.render(v.scene, v.cam);
+    if (v.fade) {
+      const o = +getComputedStyle(v.fade).opacity;
+      if (o >= 0.999) v.fade = null;
+      else { veilMat.opacity = o; renderer.autoClear = false; renderer.render(veilScene, veilCam); renderer.autoClear = true; }
+    }
     drew = true;
   }
 }
