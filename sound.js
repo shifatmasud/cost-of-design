@@ -7,7 +7,8 @@
 // - Low master volume, a soft limiter, a little random pitch on every sound, throttles and a voice cap so fast repeats never stack.
 // - Muted while the tab is hidden. With reduced motion, the scroll-driven sounds are dropped.
 // - Background music: airy pads, a soft girl choir (bed and melody), vocal chops, an ambient drum groove (frame drum, finger
-//   snaps, shaker, soft kick) and a warm reese bass, all far back in a long dark hall with the highs rolled off. Rendered
+//   snaps, shaker, soft kick; frame drum and kick dry, snaps and shaker in a small room) and a warm reese bass, the rest far
+//   back in a long dark hall, highs rolled off. Mix order on a speaker: drums, bass, chops, choir, pads (quietest). Rendered
 //   offline as six same-length stems (70 BPM, 18 bars, seamless). The drums gently pump the bass, pads and choir. Loaded only
 //   after sound unlocks, kept well under the UI sounds, ducks a little when a UI sound plays, fades with the wave button,
 //   pauses with the tab.
@@ -73,19 +74,25 @@ const DR = 4;                                       // index of the drum stem
 // - bass: soft harmonics (300-1100 Hz) made from its own low end, so the ear hears the bass line on a small speaker
 // - chops: +6 dB
 const VOICE = {
-  chops: { trim: 2 },
-  drums: { trim: 1.7, eq: [[1800, 0.9, 12], [650, 1, 6]], warm: { split: 180, pre: 4, drive: 2, hp: 250, lp: 900, mix: 0.12 } },
-  bass:  { trim: 0.8, warm: { split: 260, pre: 4, drive: 2, hp: 300, lp: 1100, mix: 1 } },
+  chops: { trim: 1.31 },
+  drums: { trim: 7.05, eq: [[1800, 0.9, 12], [650, 1, 6]], shelf: [220, -9], warm: { split: 180, pre: 4, drive: 2, hp: 250, lp: 900, mix: 0.12 } },
+  bass:  { trim: 1.08, shelf: [180, -6], warm: { split: 260, pre: 4, drive: 2, hp: 300, lp: 1100, mix: 1 } },
 };
-// per section: gain of each stem (1 = the full mix; pads, choir, melody, chops, drums, bass), and the low-pass cutoff in Hz
+// Mix order, as heard on a phone or laptop speaker (Shifat): drums loudest, then bass, then chops, then choir and choir
+// melody, and the pads quietest, about 3 dB per step wherever the layers play. Done mostly by turning the pads and choir
+// down. The low shelf on the drums and bass keeps headphones from getting boomy, so the total stays within about 3 dB
+// of the old mix on both a speaker and headphones. The drums stem itself is dry: the frame drum and kick have no reverb,
+// the snaps and shaker only a short small room. Nothing here adds reverb or a hall to it.
+// per section: gain of each stem (pads, choir, melody, chops, drums, bass), the low-pass cutoff in Hz, and p, the drum
+// level that sets the pump depth (the old drum gains, so the pump is the same as before)
 const MIX = {
-  hero:   { g: [1, 0.75, 0, 0, 0.2, 0.35], lp: 2000 },      // pads, soft choir; the loop's own groove barely there
-  rule:   { g: [1, 0.85, 0.12, 0.2, 0.4, 0.5], lp: 2300 },  // 01: one rule for every sense, a hint of drums and bass
-  cost:   { g: [0.95, 0.6, 0, 0.35, 0.9, 0.75], lp: 2600 }, // 02: two kinds of cost, drum section, choir pulled back
-  noise:  { g: [0.9, 0.5, 0, 0.5, 1, 0.85], lp: 2900 },     // 03: noise vs intent, the fullest drum section
-  budget: { g: [1, 0.8, 1, 0.4, 0.5, 0.65], lp: 3200 },     // 04: budget, the choir melody lift, light drums under it
-  close:  { g: [1, 1, 0.1, 0, 0.1, 0.4], lp: 2200 },        // spend with intent: back to pads and choir
-  footer: { g: [0.9, 0, 0, 0, 0, 0.3], lp: 900 },           // dark footer: pads and a little bass, darker, soft swell
+  hero:   { g: [0.39, 0.428, 0, 0, 0, 1.535], lp: 2000, p: 0.2 },                // bass, then choir, then pads
+  rule:   { g: [0.205, 0.225, 0.196, 1.122, 1.145, 1.13], lp: 2300, p: 0.4 },    // 01: one rule for every sense
+  cost:   { g: [0.189, 0.208, 0, 1.037, 1.042, 1.044], lp: 2600, p: 0.9 },       // 02: two kinds of cost, drum section
+  noise:  { g: [0.182, 0.2, 0, 1, 1, 1], lp: 2900, p: 1 },                       // 03: noise vs intent, the fullest drums
+  budget: { g: [0.253, 0.264, 0.29, 1.412, 1.409, 1.379], lp: 3200, p: 0.5 },    // 04: budget, brightest
+  close:  { g: [0.423, 0.467, 0.407, 0, 0, 1.654], lp: 2200, p: 0.1 },          // spend with intent: bass, choir, pads
+  footer: { g: [0.408, 0, 0, 0, 0, 1.129], lp: 900, p: 0 },                      // dark footer: bass over pads, soft swell
 };
 // sidechain: stem index -> duck depth at drum level 1 (gentle: about -5 dB bass, -3 dB pads, -1 dB choir at the deepest)
 const PUMP = { 5: 0.45, 0: 0.28, 1: 0.1 };
@@ -117,6 +124,10 @@ function voice(name, out) {
     const p = ctx.createBiquadFilter(); p.type = 'peaking'; p.frequency.value = f; p.Q.value = q; p.gain.value = db;
     last.connect(p); last = p;
   });
+  if (v.shelf) {                                   // low shelf: less boom on headphones, same on a small speaker
+    const sf = ctx.createBiquadFilter(); sf.type = 'lowshelf'; sf.frequency.value = v.shelf[0]; sf.gain.value = v.shelf[1];
+    last.connect(sf); last = sf;
+  }
   last.connect(out);
   if (v.warm) {
     const w = v.warm, split = ctx.createBiquadFilter(), pre = ctx.createGain(), sh = ctx.createWaveShaper(),
@@ -153,11 +164,11 @@ function mixTo(name, now) {
   if (!mus || !mus.ready) return;
   const m = MIX[name], t = ctx.currentTime, tc = now ? 0.01 : 0.9;    // 0.9 s time constant: settled in about 3 s
   mus.st.forEach((g, i) => glide(g.gain, m.g[i], t, tc));
-  mus.amt.forEach(([i, a]) => glide(a.gain, PUMP[i] * m.g[DR], t, tc));   // pump depth follows the drum level
+  mus.amt.forEach(([i, a]) => glide(a.gain, PUMP[i] * m.p, t, tc));   // pump depth follows the section's drum level
   glide(mus.lp.frequency, m.lp, t, now ? 0.01 : 1.1);
   if (name === 'footer' && !now) {                                   // a soft swell as the footer opens
     const p = mus.st[0].gain; p.cancelScheduledValues(t); p.setValueAtTime(p.value, t);
-    p.setTargetAtTime(1.25, t, 0.8); p.setTargetAtTime(m.g[0], t + 3, 1.6);
+    p.setTargetAtTime(m.g[0] * 1.25, t, 0.8); p.setTargetAtTime(m.g[0], t + 3, 1.6);   // +2 dB, stays under the bass
   }
 }
 function music() {
@@ -194,7 +205,7 @@ function music() {
       const g = ctx.createGain(); g.gain.value = MIX[scene].g[i]; mus.st.push(g);
       if (PUMP[i]) {                       // stem -> voicing -> pump gain (1 + depth * curve) -> section gain
         const pg = ctx.createGain(), amt = ctx.createGain(); pg.gain.value = 1;
-        amt.gain.value = PUMP[i] * MIX[scene].g[DR]; pump.connect(amt); amt.connect(pg.gain); mus.amt.push([i, amt]);
+        amt.gain.value = PUMP[i] * MIX[scene].p; pump.connect(amt); amt.connect(pg.gain); mus.amt.push([i, amt]);
         pg.connect(g);
         g.connect(mus.lp);
         g.inp = pg;
