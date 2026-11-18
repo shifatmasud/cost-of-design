@@ -91,7 +91,8 @@ p+p{margin-top:16px}
 .meter .fill{position:absolute;left:0;top:0;bottom:0;border-radius:999px;transform-origin:left center}
 .meter.over .fill{width:100%;background:#e8774a}
 .meter.over .num{color:#b5481a}
-.meter.fit .fill{width:60%;background:var(--orange)}
+.meter.fit .fill{width:60%;background:#5ec46c}
+.meter.fit .num{color:#2f8a43}
 .meter .note{font-size:16px;color:var(--muted)}
 .say{font-weight:600;font-size:clamp(24px,2.6vw,32px);line-height:1.25;letter-spacing:-.02em;margin-top:clamp(48px,6vw,72px);max-width:22ch}
 .close{display:grid;grid-template-columns:1.1fr 1fr;align-items:center;gap:clamp(40px,6vw,96px);padding:var(--gap) 0 40px}
@@ -333,9 +334,10 @@ if (!reduce) {
   document.querySelectorAll('.tile').forEach((el) => magnet(el, 6, -4));
   document.querySelectorAll('.card').forEach((el) => magnet(el, 3));
 
-  // budget meters: the bar follows the pointer or finger and the number counts with it, then both spring back
+  // budget meters: the Piled on bar follows the pointer or finger and the number counts with it, then both spring back
   meters.forEach((k) => {
     magnet(k.m, 4);
+    if (k.base !== 1) return; // Budgeted stays at 60%: it only leans gently
     track(k.m, {
       move(x) {
         const r = k.trk.getBoundingClientRect();
