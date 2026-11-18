@@ -867,8 +867,9 @@ const builders = {
     const build = () => {
       world = new R.World({ x: 0, y: -9.81, z: 0 });
       const fix = (hx, hy, hz, px, py, pz, f) => world.createCollider(R.ColliderDesc.cuboid(hx, hy, hz).setTranslation(px, py, pz).setFriction(f).setRestitution(0.15));
-      const H = 3, T = 0.1, cy = GT + H;
+      const H = 3, T = 0.5, cy = GT + H;   // thick walls (same inner faces), so a hard throw can't tunnel through
       fix(GW, 0.15, GD, 0, GY, 0, 0.75);
+      fix(GW + T, T, GD + T, 0, GY - 0.15 - T, 0, 0.75);   // thick floor under the slab
       // invisible walls and a lid keep every cube on the slab
       fix(T, H, GD + T, -GW - T, cy, 0, 0.2); fix(T, H, GD + T, GW + T, cy, 0, 0.2);
       fix(GW + T, H, T, 0, cy, -GD - T, 0.2); fix(GW + T, H, T, 0, cy, GD + T, 0.2);
@@ -879,7 +880,7 @@ const builders = {
       let px, py, pz;
       if (reduce) { px = -0.95 + (i % 4) * 0.63; pz = -0.5 + (Math.floor(i / 4) % 3) * 0.5; py = GT + s / 2 + 0.04; _q.setFromEuler(_e.set(0, i * 0.5, 0)); }
       else { px = (((i * 0.618) % 1) - 0.5) * 1.5; pz = (((i * 0.382) % 1) - 0.5) * 0.9; py = 3.3; _q.setFromEuler(_e.set(Math.random() * 3, Math.random() * 3, Math.random() * 3)); }
-      const b = world.createRigidBody(R.RigidBodyDesc.dynamic().setTranslation(px, py, pz).setRotation({ x: _q.x, y: _q.y, z: _q.z, w: _q.w }).setLinearDamping(0.25).setAngularDamping(0.6).setCanSleep(true));
+      const b = world.createRigidBody(R.RigidBodyDesc.dynamic().setTranslation(px, py, pz).setRotation({ x: _q.x, y: _q.y, z: _q.z, w: _q.w }).setLinearDamping(0.25).setAngularDamping(0.6).setCanSleep(true).setCcdEnabled(true));
       world.createCollider(R.ColliderDesc.roundCuboid(hh, hh, hh, r).setFriction(0.6).setRestitution(0.22).setDensity(1), b);
       if (!reduce) b.setLinvel({ x: 0, y: -1.5, z: 0 }, true);
       B.push(b);
@@ -965,6 +966,43 @@ const builders = {
 
     // ---- scroll and pointer movement ----
     let sy0 = scrollY, sv = 0, pn = -1, pcx = -1, pcy = -1;
+    // scroll position with sub-pixel detail: Lenis' own float on desktop, native scrollY for touch (Lenis leaves touch native)
+    const L0 = () => window.__lenis;
+    const sPos = () => { const l = L0(); return l && l.isScrolling === 'smooth' && Number.isFinite(l.animatedScroll) ? l.animatedScroll : scrollY; };
+    let sPrev = sPos(), sT = performance.now(), sVel = 0, sSlow = 0;
+    const MAXV = 9, MAXW = 16, _aw = new THREE.Vector3();
+    const clampV = (b) => {
+      const l = b.linvel(), m = Math.hypot(l.x, l.y, l.z); if (m > MAXV) { const k = MAXV / m; b.setLinvel({ x: l.x * k, y: l.y * k, z: l.z * k }, true); }
+      const a = b.angvel(), w = Math.hypot(a.x, a.y, a.z); if (w > MAXW) { const k = MAXW / w; b.setAngvel({ x: a.x * k, y: a.y * k, z: a.z * k }, true); }
+    };
+    // per-cube jitter, so the pile breaks apart instead of moving as one block
+    const jit = Array.from({ length: N }, (_, i) => 0.75 + ((i * 0.618) % 1) * 0.5);
+    // scroll force: every frame while scrolling. Strength follows sqrt(speed), so tiny scrolls still nudge
+    // and wobble the cubes, and a fast flick throws them high and tumbles them (capped).
+    let stillT = 1;
+    const scrollForce = (v, jerk, k60, el) => {
+      const a = Math.abs(v); if (a < 3) { stillT += el; return; }
+      const c = Math.sqrt(Math.min(a, 4000) / 4000);                // 0..1, eases out: 30 px/s -> 0.09, 300 -> 0.27, 1000 -> 0.5
+      const start = stillT > 0.3; stillT = 0;                        // a scroll begins after a rest: every cube gets a little hop
+      const kick = Math.min(2.4, 0.01 * Math.sqrt(Math.max(0, jerk))) + (start ? 0.8 : 0);
+      const down = v > 0;
+      // a floor (0.08) makes cubes feel light and wobble even on a tiny scroll; past ~1000 px/s the lift beats gravity and they fly
+      const lift = (0.08 + 0.28 * c) * k60, fwd = (0.03 + 0.15 * c) * k60;
+      // "away" is the camera's forward direction, flat on the slab, in the slab's own space
+      cam.getWorldDirection(_aw); _aw.applyQuaternion(_iq.copy(root.quaternion).invert()); _aw.y = 0; _aw.normalize();
+      for (let i = 0; i < B.length; i++) {
+        const b = B[i]; if (drag && b === drag.b) continue;
+        const j = jit[i], l = b.linvel(), p = b.translation(), low = p.y < GT + sizes[i] / 2 + 0.1;
+        let up, fw;
+        if (down) { up = (lift + kick) * j; fw = (fwd + kick * 0.3) * j; }
+        else { up = low ? (lift * 0.9 + kick * 0.8) * j : -(lift * 1.4 + kick * 0.4) * j; fw = -(fwd + kick * 0.3) * j; }
+        const side = (Math.random() - 0.5) * (fwd * 0.8 + kick * 0.3);
+        b.setLinvel({ x: l.x + _aw.x * fw + _aw.z * side, y: l.y + up, z: l.z + _aw.z * fw - _aw.x * side }, true);
+        const w = b.angvel(), sp = ((0.8 + 1.6 * c) * k60 + kick * 3) * j;
+        b.setAngvel({ x: w.x + (Math.random() - 0.5) * sp, y: w.y + (Math.random() - 0.5) * sp, z: w.z + (Math.random() - 0.5) * sp }, true);
+        clampV(b);
+      }
+    };
     const _w = new THREE.Vector3(), _iq = new THREE.Quaternion();
     const push = (dx, dy, dz) => { for (const b of B) { if (drag && b === drag.b) continue; const l = b.linvel(); b.setLinvel({ x: l.x + dx, y: l.y + dy, z: l.z + dz }, true); } };
     const STEP = 1 / 60;
@@ -976,11 +1014,24 @@ const builders = {
       if (!world) return;
       if (born < 0) born = t;
       while (B.length < N && (reduce || t - born >= B.length * 0.22)) add(B.length);
-      // scroll: a fast change in scroll speed makes the cubes hop and slide (Lenis drives scrollY on desktop)
+      // scroll: real elapsed time (not the clamped frame dt), so slow phone frames don't misread the speed
+      if (!reduce) {
+        const nowS = performance.now(), ys = sPos(), el2 = (nowS - sT) / 1000;
+        if (el2 > 0.2) { sVel = 0; sSlow = 0; }                      // back on screen after a pause: no fake spike
+        else if (el2 > 0.0005) {
+          const raw = (ys - sPrev) / el2, ab0 = sSlow;
+          sVel += (raw - sVel) * (1 - Math.exp(-el2 / 0.06));        // light smoothing, ~60 ms
+          sSlow += (Math.abs(sVel) - sSlow) * (1 - Math.exp(-el2 / 0.15));   // slower copy: speed-ups read without frame jitter
+          scrollForce(sVel, (sSlow - ab0) / el2, Math.min(2, el2 * 60), el2);
+        }
+        sPrev = ys; sT = nowS;
+        window.__cubeScroll = sVel;                                  // for checks
+      }
       const y = scrollY, nsv = (y - sy0) / dt; sy0 = y;
       const psv = sv; sv += (nsv - sv) * 0.35;
       const gain = Math.abs(sv) - Math.abs(psv);
-      if (Math.abs(sv) > 250 && gain > 0) {
+      if (!reduce) { /* full-motion scroll handled above */ }
+      else if (Math.abs(sv) > 250 && gain > 0) {
         const up = Math.min(1.2, gain * 0.0011) * (reduce ? 0.25 : 1), sl = Math.max(-0.8, Math.min(0.8, -(sv - psv) * 0.0006)) * (reduce ? 0.25 : 1);
         if (up > 0.02) push(0, up, sl);
       } else if (Math.abs(sv - psv) > 400) {
@@ -1029,6 +1080,7 @@ const builders = {
         }
         const pre = B.map((b) => { const l = b.linvel(); return [l.x, l.y, l.z]; });
         world.step();
+        if (!reduce) for (const b of B) if (!drag || b !== drag.b) clampV(b);
         // impacts: a sudden change in a cube's speed
         B.forEach((b, i) => { if (drag && b === drag.b) return; const l = b.linvel(), q = pre[i], dv = Math.hypot(l.x - q[0], l.y - q[1], l.z - q[2]); if (dv > hit) { hit = dv; hs = sizes[i]; } });
         acc -= STEP; n++;
