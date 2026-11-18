@@ -46,12 +46,13 @@ h1,.meter,.band,.chips span{-webkit-user-select:none;user-select:none;-webkit-ta
 .hero{display:grid;grid-template-columns:1fr 1fr;gap:clamp(40px,6vw,88px);align-items:center;padding:clamp(40px,7vw,96px) 0 clamp(96px,11vw,150px);min-height:min(86vh,860px)}
 h1{font-weight:600;font-size:clamp(46px,6vw,80px);line-height:1.02;letter-spacing:-.035em;margin:0 0 clamp(14px,1.4vw,20px)}
 h1 .w{display:inline-block}
-h1 em{font-style:normal;font-weight:700;display:inline-block;font-size:1.06em;letter-spacing:0;padding:0 .04em 0 .02em;white-space:nowrap}
-h1 em b{--f:#ffb8d6;--o:#d9468a;position:relative;display:inline-block;font-weight:700;color:var(--f);-webkit-text-stroke:.1em var(--o);paint-order:stroke fill;margin-left:-.07em;translate:0 var(--y,0);rotate:var(--r,0deg)}
-h1 em b:first-child{margin-left:0}
-h1 em b::before{content:attr(data-l);position:absolute;left:0;top:0;z-index:-1;color:var(--o);-webkit-text-stroke:.16em var(--ink);paint-order:stroke fill;text-shadow:0 .08em .12em rgba(51,43,41,.18);pointer-events:none}
-h1 em b::after{content:attr(data-l);position:absolute;left:0;top:0;color:rgba(255,255,255,.85);-webkit-text-stroke:0;text-shadow:none;clip-path:inset(24% 50% 60% 18% round .08em);pointer-events:none}
-h1 em b:nth-child(1){--f:#ffc4de;--o:#ff4f9a;--r:-5deg;--y:.05em}h1 em b:nth-child(2){--f:#ffd9ad;--o:#ff8a1f;--r:4deg;--y:-.06em}h1 em b:nth-child(3){--f:#fff2a6;--o:#f2bd00;--r:-3deg;--y:.04em}h1 em b:nth-child(4){--f:#c6f3ba;--o:#36bb4b;--r:5deg;--y:-.05em}h1 em b:nth-child(5){--f:#c2e4ff;--o:#2d97f2;--r:-4deg;--y:.05em}h1 em b:nth-child(6){--f:#ddcdff;--o:#8a5cf5;--r:4deg;--y:-.04em}
+h1 .w:last-child{isolation:isolate}
+.pop{isolation:isolate;font-style:normal;font-weight:700;display:inline-block;font-size:1.06em;letter-spacing:0;padding:0 .04em 0 .02em;white-space:nowrap}
+.pop b{--f:#ffb8d6;--o:#d9468a;position:relative;display:inline-block;font-weight:700;color:var(--f);-webkit-text-stroke:.1em var(--o);paint-order:stroke fill;margin-left:-.07em;translate:0 var(--y,0);rotate:var(--r,0deg)}
+.pop b:first-child{margin-left:0}
+.pop b::before{content:attr(data-l);position:absolute;left:0;top:0;z-index:-1;color:var(--o);-webkit-text-stroke:.16em var(--ink);paint-order:stroke fill;text-shadow:0 .08em .12em rgba(51,43,41,.18);pointer-events:none}
+.pop b::after{content:attr(data-l);position:absolute;left:0;top:0;color:rgba(255,255,255,.85);-webkit-text-stroke:0;text-shadow:none;clip-path:inset(24% 50% 60% 18% round .08em);pointer-events:none}
+.pop b:nth-child(1){--f:#ffc4de;--o:#ff4f9a;--r:-5deg;--y:.05em}.pop b:nth-child(2){--f:#ffd9ad;--o:#ff8a1f;--r:4deg;--y:-.06em}.pop b:nth-child(3){--f:#fff2a6;--o:#f2bd00;--r:-3deg;--y:.04em}.pop b:nth-child(4){--f:#c6f3ba;--o:#36bb4b;--r:5deg;--y:-.05em}.pop b:nth-child(5){--f:#c2e4ff;--o:#2d97f2;--r:-4deg;--y:.05em}.pop b:nth-child(6){--f:#ddcdff;--o:#8a5cf5;--r:4deg;--y:-.04em}
 .lede{font-size:clamp(20px,1.8vw,23px);line-height:1.5;color:var(--muted);max-width:28ch}
 .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:clamp(20px,2vw,28px)}
 .view{position:relative;width:100%}
@@ -99,15 +100,38 @@ p+p{margin-top:16px}
 .say{font-weight:600;font-size:clamp(24px,2.6vw,32px);line-height:1.25;letter-spacing:-.02em;margin-top:clamp(48px,6vw,72px);max-width:22ch}
 .close{display:grid;grid-template-columns:1.1fr 1fr;align-items:center;gap:clamp(40px,6vw,96px);padding:var(--gap) 0 40px}
 .close .view{aspect-ratio:1/1;max-width:440px;justify-self:center}
-.close h2{font-size:clamp(44px,5.6vw,76px);line-height:1.02;max-width:12ch}
-.close p{color:var(--muted);margin-top:8px;max-width:28ch}
+.close h2{font-size:clamp(44px,5.6vw,76px);line-height:1.02;max-width:12ch;margin-bottom:clamp(14px,1.4vw,20px)}
+.close p{color:var(--muted);max-width:28ch}
 footer{border-top:1px solid var(--line);margin-top:72px;padding:32px 0 48px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:15px;color:var(--muted)}
 footer a{color:inherit}
 .js .reveal{opacity:0;transform:translateY(24px)}
-.js h1 .w{opacity:0;transform:translateY(20px)}
+.m{display:inline-block;overflow:hidden;padding:.14em .08em .16em;margin:-.14em -.08em -.16em}
+.m>.mi{display:inline-block}
+.js .m>.mi{transform:translateY(125%)}
+.js .pop{opacity:0}
+.odo{display:inline-flex}
+.reel{position:relative;display:inline-block}
+.reel>.sz{visibility:hidden}
+.reel>.win{position:absolute;inset:0;overflow:hidden}
+.reel .strip{position:absolute;left:0;right:0;top:0;display:flex;flex-direction:column;text-align:center}
+.reel .strip i{display:block;height:1em;line-height:1;font-style:normal}
+/* Read the idea: the Shade Verse title-screen Play button (shade-verse src/title: TitleButton.tsx, portfolio/ink.css, title.css .sv-play),
+   as a label pill with a thick black ring. inkButton.ts (ink-button.js) drives the flood, roll, magnet, squash and ripple. */
+.pill--ink{position:relative;isolation:isolate;overflow:hidden;height:58px;padding:0 24px 0 28px;gap:12px;font:600 18px/1 var(--font);color:#121315;background:var(--yellow);box-shadow:0 0 0 3.5px #121315,0 8px 30px rgba(18,19,21,.2);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+.pill--ink:focus-visible{outline:2px solid #121315;outline-offset:7px}
+.pill--ink>.sroll{position:relative;z-index:1}
+.pill--ink .sroll{position:relative;display:block;overflow:hidden}
+.pill--ink .lab{padding:.12em 0}
+.pill--ink .lab .ir-a{display:block}
+.pill--ink .lab .ir-b{display:block;position:absolute;inset:.12em 0;transform:translate3d(0,100%,0)}
+.pill--ink .arw{width:18px;height:18px}
+.pill--ink .arw .ia-a,.pill--ink .arw .ia-b{display:block;position:absolute;inset:0}
+.pill--ink .arw .ia-b{transform:translate3d(-130%,130%,0)}
+.pill--ink .arw svg{display:block;width:100%;height:100%}
+.pill--ink .ink{position:absolute;inset:0;z-index:2;pointer-events:none;visibility:hidden;clip-path:circle(0px at 0px 0px);display:flex;align-items:center;gap:12px;padding:0 24px 0 28px;background:#121315;color:var(--yellow);border-radius:inherit}
 @media (max-width:860px){.hero,.row,.close,.head{grid-template-columns:1fr}.hero{min-height:0;padding-top:24px;gap:48px}.hero .view{max-width:480px;width:100%;justify-self:center}.close .view{max-width:320px;order:-1}.head{gap:16px}.meters{grid-template-columns:1fr}.budget .view{max-width:340px;width:100%}.rule .view{max-width:440px;justify-self:center}}
 @media (max-width:620px){body{font-size:18px}:root{--r:28px;--gap:96px}.grid2{grid-template-columns:1fr}header{padding:20px 0}h1{font-size:clamp(42px,12vw,54px)}.hero .view{border-radius:36px}.band{padding:18px 0}.chips{margin-top:28px}}
-@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.js .reveal,.js h1 .w{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.js .reveal,.js .m>.mi,.js .pop{opacity:1;transform:none;filter:none}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/","motion":"https://cdn.jsdelivr.net/npm/motion@14.14.0/+esm"}}</script>
 </head>
@@ -122,9 +146,9 @@ footer a{color:inherit}
 
 <div class="hero">
 <div>
-<h1><span class="w">The</span> <span class="w">cost</span><br> <span class="w">of</span> <span class="w"><em><b data-l="d">d</b><b data-l="e">e</b><b data-l="s">s</b><b data-l="i">i</b><b data-l="g">g</b><b data-l="n">n</b></em></span></h1>
-<p class="lede reveal">Every element you add has a price. Good design is knowing what to spend it on.</p>
-<div class="cta reveal"><a class="pill" href="#rule">Read the idea</a></div>
+<h1><span class="w">The</span> <span class="w">cost</span><br> <span class="w">of</span> <span class="w"><em class="pop"><b data-l="d">d</b><b data-l="e">e</b><b data-l="s">s</b><b data-l="i">i</b><b data-l="g">g</b><b data-l="n">n</b></em></span></h1>
+<p class="lede">Every element you add has a price. Good design is knowing what to spend it on.</p>
+<div class="cta reveal"><a class="pill pill--ink" href="#rule"><span class="sroll lab ink-par"><span class="ir-a">Read the idea</span><span class="ir-b" aria-hidden="true">Read the idea</span></span><span class="sroll arw ink-par" aria-hidden="true"><span class="ia-a"><svg viewBox="0 0 256 256" aria-hidden="true"><path fill="currentColor" d="M204,64V168a12,12,0,0,1-24,0V93L72.49,200.49a12,12,0,0,1-17-17L163,76H88a12,12,0,0,1,0-24H192A12,12,0,0,1,204,64Z"/></svg></span><span class="ia-b"><svg viewBox="0 0 256 256" aria-hidden="true"><path fill="currentColor" d="M204,64V168a12,12,0,0,1-24,0V93L72.49,200.49a12,12,0,0,1-17-17L163,76H88a12,12,0,0,1,0-24H192A12,12,0,0,1,204,64Z"/></svg></span></span><span class="ink" aria-hidden="true"><span class="sroll lab ink-par" aria-hidden="true"><span class="ir-a">Read the idea</span><span class="ir-b" aria-hidden="true">Read the idea</span></span><span class="sroll arw ink-par" aria-hidden="true"><span class="ia-a"><svg viewBox="0 0 256 256" aria-hidden="true"><path fill="currentColor" d="M204,64V168a12,12,0,0,1-24,0V93L72.49,200.49a12,12,0,0,1-17-17L163,76H88a12,12,0,0,1,0-24H192A12,12,0,0,1,204,64Z"/></svg></span><span class="ia-b"><svg viewBox="0 0 256 256" aria-hidden="true"><path fill="currentColor" d="M204,64V168a12,12,0,0,1-24,0V93L72.49,200.49a12,12,0,0,1-17-17L163,76H88a12,12,0,0,1,0-24H192A12,12,0,0,1,204,64Z"/></svg></span></span></span></a></div>
 </div>
 <div class="view" data-view="hero"></div>
 </div>
@@ -150,7 +174,7 @@ footer a{color:inherit}
 </section>
 
 <section>
-<div class="head reveal">
+<div class="head">
 <div><p class="label">02</p><h2>Two kinds of cost</h2></div>
 <p class="intro">The cost is not only technical. It also shapes how the human brain sees and feels the work.</p>
 </div>
@@ -161,13 +185,13 @@ footer a{color:inherit}
 </section>
 
 <section>
-<div class="head reveal">
+<div class="head">
 <div><p class="label">03</p><h2>More is not premium</h2></div>
 <p class="intro">Too many shadows. Too many effects. Everything over the top. It does not feel premium. It feels like generic slop. The noise drowns out the intent.</p>
 </div>
 <div class="grid2">
 <div class="tile s reveal"><div class="view" data-view="noise"></div><h3>Noise</h3><p>Everything shouts. Nothing lands.</p></div>
-<div class="tile g reveal"><div class="view" data-view="intent"></div><h3>Intent</h3><p>One thing, with room to breathe.</p></div>
+<div class="tile g reveal"><div class="view" data-view="intent"></div><h3><em class="pop"><b data-l="I">I</b><b data-l="n">n</b><b data-l="t">t</b><b data-l="e">e</b><b data-l="n">n</b><b data-l="t">t</b></em></h3><p>One thing, with room to breathe.</p></div>
 </div>
 </section>
 
@@ -190,15 +214,41 @@ footer a{color:inherit}
 </section>
 
 <div class="close">
-<div class="reveal"><h2>Nothing is free. Spend with intent.</h2><p>Less noise. More meaning. That is what premium feels like.</p></div>
+<div><h2>Nothing is free. Spend with <em class="pop"><b data-l="i">i</b><b data-l="n">n</b><b data-l="t">t</b><b data-l="e">e</b><b data-l="n">n</b><b data-l="t">t</b></em></h2><p>Less noise. More meaning. That is what premium feels like.</p></div>
 <div class="view" data-view="close"></div>
 </div>
 
 <footer><span>The Cost of Design. An idea by Shifat Masud</span><span>Set in <a href="https://allo.joshpuckett.me">Allo</a> by Josh Puckett</span><span>November 2026</span></footer>
 </div>
 
+<script>
+(function(){
+  // words in a clipping mask: each word slides up from behind an invisible edge
+  function wrap(node){
+    [].slice.call(node.childNodes).forEach(function(n){
+      if(n.nodeType===3){
+        var parts=n.nodeValue.split(/(\s+)/), f=document.createDocumentFragment();
+        parts.forEach(function(t){ if(!t) return; if(/^\s+$/.test(t)){f.appendChild(document.createTextNode(t));return;}
+          var m=document.createElement('span'); m.className='m'; var i=document.createElement('span'); i.className='mi'; i.textContent=t; m.appendChild(i); f.appendChild(m); });
+        node.replaceChild(f,n);
+      } else if(n.nodeType===1 && n.tagName!=='BR' && n.tagName!=='SMALL' && !n.classList.contains('pop')) wrap(n);
+    });
+  }
+  document.querySelectorAll('h1 .w').forEach(function(w){ if(w.querySelector('em')) return; var i=document.createElement('span'); i.className='mi'; while(w.firstChild) i.appendChild(w.firstChild); w.appendChild(i); w.classList.add('m'); });
+  document.querySelectorAll('.lede, .head .label, .head h2, .head .intro, .card > .row .label, .card > .row h2, .card > .row p, .tile h3, .tile p, .meter .name, .meter .note, .say, .close h2, .close p').forEach(function(el){ el.setAttribute('data-split',''); wrap(el); });
+  // odometer: one reel per digit (blank, 0-9, 0-9), only one cell shows
+  document.querySelectorAll('.meter .num').forEach(function(num){
+    var to=+num.dataset.to, n=num.closest('.over')?3:String(to).length, odo=document.createElement('span'); odo.className='odo'; odo.setAttribute('aria-hidden','true');
+    var cells='<i>&nbsp;</i>'; for(var c=0;c<2;c++) for(var d=0;d<10;d++) cells+='<i>'+d+'</i>';
+    for(var k=0;k<n;k++){ var r=document.createElement('span'); r.className='reel'; r.innerHTML='<span class="sz">0</span><span class="win"><span class="strip">'+cells+'</span></span>'; odo.appendChild(r); }
+    var sr=document.createElement('span'); sr.className='sr'; sr.textContent=to+'%';
+    num.replaceChild(odo,num.firstChild); num.insertBefore(sr,odo); num.querySelector('small').setAttribute('aria-hidden','true');
+  });
+})();
+</script>
 <script type="module">
 import { animate, inView, scroll, stagger } from 'motion';
+import { bindInk } from './ink-button.js';
 window.__motionReady = true;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ease = [0.22, 1, 0.36, 1];
@@ -263,16 +313,46 @@ function press(el) {
   ['pointerup', 'pointerleave', 'pointercancel'].forEach((t) => el.addEventListener(t, up, { passive: true }));
 }
 
+// odometer: each digit is a reel (blank, 0-9, 0-9) that rolls to its value; leading zeros roll to blank
+const CELLS = 21;
 const meters = [...document.querySelectorAll('.meter')].map((m) => {
   const fill = m.querySelector('.fill'), num = m.querySelector('.num'), trk = m.querySelector('.trk');
   const to = +num.dataset.to, base = m.classList.contains('over') ? 1 : 0.6, max = m.classList.contains('over') ? 120 : 100;
-  let cur = to, na = null;
-  const show = (v, opts, from = cur) => { if (na) na.stop(); na = animate(from, v, { ...(opts || spring(200, 26)), onUpdate: (x) => { cur = x; num.firstChild.nodeValue = Math.round(x); } }); };
-  return { m, fill, trk, to, base, max, show };
+  const strips = [...num.querySelectorAll('.strip')];
+  const idx = (v) => { v = Math.round(clamp(v, 0, 999)); const s = String(v).padStart(strips.length, ' '); return [...s].map((c, i) => (c === ' ' && i < s.length - 1) ? 0 : 11 + (+c || 0)); };
+  const pos = (k) => `${(-k * 100 / CELLS).toFixed(4)}%`;
+  let last = idx(to).join();
+  const set = (v, opts) => { const ks = idx(v), key = ks.join(); if (key === last && !opts) return; last = key; strips.forEach((st, i) => animate(st, { y: pos(ks[i]) }, typeof opts === 'function' ? opts(i) : (opts || spring(260, 26)))); };
+  strips.forEach((st, i) => animate(st, { y: pos(reduce ? idx(to)[i] : 0) }, { duration: 0 }));
+  const intro = () => { last = ''; set(to, (i) => ({ duration: 1.5 + 0.12 * i, delay: 0.35 + 0.09 * i, ease })); };
+  return { m, fill, trk, to, base, max, show: set, intro };
 });
 
 if (!reduce) {
-  animate('h1 .w', { opacity: [0, 1], y: [20, 0] }, { duration: 1.2, delay: stagger(0.08, { startDelay: 0.1 }), ease });
+  // title words slide up from their masks; "design" comes in with blur + fade + scale down (blur on this one element only)
+  animate('h1 .m > .mi', { y: ['125%', '0%'] }, { duration: 1, delay: stagger(0.08, { startDelay: 0.1 }), ease });
+  const popIn = (em, delay) => {
+    em.style.filter = 'blur(12px)';
+    animate(em, { opacity: [0, 1], scale: [1.4, 1] }, { duration: 1.1, delay, ease });
+    animate(12, 0, { duration: 0.9, delay, ease, onUpdate: (v) => { em.style.filter = v > 0.05 ? `blur(${v.toFixed(2)}px)` : 'none'; }, onComplete: () => { em.style.filter = 'none'; } });
+  };
+  popIn(document.querySelector('h1 .pop'), 0.38);
+  inView('.pop:not(h1 .pop)', (em) => { popIn(em, 0.3); }, { margin: '0px 0px -8% 0px' });
+  // text: words slide up from behind a mask; headings word by word, paragraphs line by line
+  const groupOf = (el) => el.closest('.card, .tile, .meter, .head, .close, .hero') || el.parentElement;
+  const order = new Map();
+  document.querySelectorAll('[data-split]').forEach((el) => { const g = groupOf(el); const n = order.get(g) || 0; order.set(g, n + 1); el._d = (g.classList.contains('reveal') ? 0.15 : 0) + n * 0.1; });
+  inView('[data-split]', (el) => {
+    const words = [...el.querySelectorAll('.m > .mi')];
+    const head = /^H[1-6]$/.test(el.tagName);
+    let line = -1, top = null, wi = 0;
+    words.forEach((w) => {
+      const t = w.parentElement.offsetTop;
+      if (top === null || Math.abs(t - top) > 4) { line++; top = t; }
+      const d = el._d + line * 0.08 + (head ? wi++ * 0.045 : 0);
+      animate(w, { y: ['125%', '0%'] }, { duration: 0.9, delay: d, ease });
+    });
+  }, { margin: '0px 0px -8% 0px' });
   inView('.reveal', (el) => {
     animate(el, { opacity: 1, y: 0 }, { duration: 1.1, ease });
   }, { margin: '0px 0px -8% 0px' });
@@ -281,7 +361,7 @@ if (!reduce) {
   });
   meters.forEach((k) => inView(k.m, () => {
     animate(k.fill, { scaleX: [0, 1] }, { duration: 1.6, delay: 0.35, ease });
-    k.show(k.to, { duration: 1.6, delay: 0.35, ease }, 0);
+    k.intro();
   }, { margin: '0px 0px -10% 0px' }));
 
   // band: slows down under the pointer or finger, then drifts back to speed
@@ -292,37 +372,40 @@ if (!reduce) {
   track(band, { move() { speed(0.2); }, leave() { speed(1); } });
 
   // rainbow letters: pushed away from the pointer, and each one bounces when you touch it; a tap sends a wave
-  const title = document.querySelector('h1');
-  const letters = [...title.querySelectorAll('em b')];
-  const lt = letters.map(() => 0);
-  let lastL = -1;
-  const bounce = (i, d = 0, force = false) => {
-    const now = performance.now();
-    if (!force && now - lt[i] < 380) return;
-    lt[i] = now + d * 1000;
-    const b = letters[i];
-    animate(b, { y: 0 }, spring(420, 11, { velocity: -460, delay: d }));
-    animate(b, { scaleY: 1 }, spring(520, 10, { velocity: -5, delay: d }));
-    animate(b, { scaleX: 1 }, spring(520, 10, { velocity: 3.5, delay: d }));
-  };
-  const pushAll = (x, y) => {
-    letters.forEach((b, i) => {
-      const r = b.getBoundingClientRect();
-      const dx = r.left + r.width / 2 - x, dy = r.top + r.height / 2 - y, d = Math.hypot(dx, dy);
-      const R = Math.max(110, r.height * 1.6), f = Math.max(0, 1 - d / R) ** 2;
-      animate(b, { x: Math.sign(dx) * f * r.width * 0.28, rotate: Math.sign(dx) * f * 9 }, spring(240, 16));
+  const popWord = (title) => {
+  const letters = [...title.querySelectorAll('.pop b')];
+    const lt = letters.map(() => 0);
+    let lastL = -1;
+    const bounce = (i, d = 0, force = false) => {
+      const now = performance.now();
+      if (!force && now - lt[i] < 380) return;
+      lt[i] = now + d * 1000;
+      const b = letters[i];
+      animate(b, { y: 0 }, spring(420, 11, { velocity: -460, delay: d }));
+      animate(b, { scaleY: 1 }, spring(520, 10, { velocity: -5, delay: d }));
+      animate(b, { scaleX: 1 }, spring(520, 10, { velocity: 3.5, delay: d }));
+    };
+    const pushAll = (x, y) => {
+      letters.forEach((b, i) => {
+        const r = b.getBoundingClientRect();
+        const dx = r.left + r.width / 2 - x, dy = r.top + r.height / 2 - y, d = Math.hypot(dx, dy);
+        const R = Math.max(110, r.height * 1.6), f = Math.max(0, 1 - d / R) ** 2;
+        animate(b, { x: Math.sign(dx) * f * r.width * 0.28, rotate: Math.sign(dx) * f * 9 }, spring(240, 16));
+      });
+    };
+    track(title, {
+      move(x, y) {
+        pushAll(x, y);
+        const i = letters.findIndex((b) => { const r = b.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; });
+        if (i >= 0 && i !== lastL) bounce(i);
+        lastL = i;
+      },
+      leave() { lastL = -1; letters.forEach((b) => animate(b, { x: 0, rotate: 0 }, spring(200, 15))); },
+      tap() { letters.forEach((b, i) => bounce(i, i * 0.06, true)); }
     });
   };
-  track(title, {
-    move(x, y) {
-      pushAll(x, y);
-      const i = letters.findIndex((b) => { const r = b.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; });
-      if (i >= 0 && i !== lastL) bounce(i);
-      lastL = i;
-    },
-    leave() { lastL = -1; letters.forEach((b) => animate(b, { x: 0, rotate: 0 }, spring(200, 15))); },
-    tap() { letters.forEach((b, i) => bounce(i, i * 0.06, true)); }
-  });
+  popWord(document.querySelector('h1'));
+  document.querySelectorAll('h2 .pop, h3 .pop').forEach((em) => popWord(em.parentElement));
 
   // the logo in the nav does a happy spin
   const mk = document.querySelector('.mark i');
@@ -338,7 +421,7 @@ if (!reduce) {
   });
 
   // pull toward the pointer: buttons, pills, chips, cards and tiles
-  document.querySelectorAll('.pill, #share').forEach((el) => { magnet(el, 6); press(el); });
+  document.querySelectorAll('#share').forEach((el) => { magnet(el, 6); press(el); });
   document.querySelectorAll('.chips span').forEach((el) => { magnet(el, 5); press(el); });
   document.querySelectorAll('.tile').forEach((el) => magnet(el, 6, -4));
   document.querySelectorAll('.card').forEach((el) => magnet(el, 3));
@@ -358,6 +441,9 @@ if (!reduce) {
     });
   });
 }
+
+// Read the idea: the Shade Verse title button engine (ink flood, roll, magnet, spring squash, tap ripple)
+document.querySelectorAll('.pill--ink').forEach((el) => bindInk(el, 'cta'));
 
 const state = { hero: 0, close: 0, px: 0, py: 0, tx: 0, ty: 0 };
 scroll((p) => { state.hero = p; }, { target: document.querySelector('.hero'), offset: ['start start', 'end start'] });
