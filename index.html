@@ -114,6 +114,9 @@ p+p{margin-top:16px}
 .close .view{aspect-ratio:1/1;max-width:440px;justify-self:center}
 .close h2{font-size:clamp(34px,5.2vw,72px);line-height:1.02;max-width:none;margin-bottom:clamp(14px,1.4vw,20px)}
 .close h2 .ln{display:block;white-space:nowrap}
+.rule h2{max-width:none}
+.rule h2 .ln{display:block;white-space:nowrap}
+@media (max-width:480px){.rule h2{font-size:min(36px,calc((100vw - 120px) / 6.4))}}
 .close p{color:var(--muted);max-width:28ch;font-size:20px;line-height:1.2}
 /* curtain footer: fixed behind the page; the white sheet scrolls up to reveal it */
 .sheet{position:relative;z-index:1;background:var(--bg);padding-bottom:72px;border-radius:0 0 var(--r) var(--r)}
@@ -199,7 +202,7 @@ footer .dim{color:rgba(245,243,239,.62)}
 <div class="row">
 <div>
 <p class="label">01</p>
-<h2>One rule for every sense</h2>
+<h2><span class="ln">One rule</span> <span class="ln">for every sense</span></h2>
 <p>Visual design. Sound design. Motion design. Even taste and smell.</p>
 <p>They all share one thing. Every element you use, every component you connect, comes with a cost. So you have to budget it carefully.</p>
 <div class="chips"><span style="--c:#fff">Visual</span><span style="--c:var(--teal)">Sound</span><span style="--c:var(--orange)">Motion</span><span style="--c:var(--green)">Taste</span><span style="--c:var(--peach)">Smell</span></div>
