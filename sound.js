@@ -1,10 +1,13 @@
-// Sound: tiny UI sounds, all made live with the Web Audio API. No audio files, no libraries.
+// Sound: tiny UI sounds, all made live with the Web Audio API, plus one small background loop (media/loop.ogg, mp3 fallback).
 // The page's own idea, applied to sound: every sound has a cost, so each one is short, quiet and warm.
 // - One shared AudioContext. Sound is ON by default; a visitor's own "off" is saved in localStorage.
 // - Browsers block audio until a real gesture, so the context unlocks on the first tap, click or key anywhere,
 //   and that first interaction plays its own sound right away.
 // - Low master volume, a soft limiter, a little random pitch on every sound, throttles and a voice cap so fast repeats never stack.
 // - Muted while the tab is hidden. With reduced motion, the scroll-driven sounds are dropped.
+// - Background loop: a soft girl choir, vocal chops, finger snaps, frame drum, a soft kick, shakers and airy pads, nothing else.
+//   Rendered offline (22.9 s, 84 BPM, 8 bars, seamless). Loaded only after sound unlocks, about -20 dB under the UI sounds,
+//   ducks a little when a UI sound plays, fades with the wave button, pauses with the tab.
 // The toggle is the Shade Verse title-screen sound button (shade-verse src/title/TitleButton.tsx, variant 'quiet'):
 // one thin wave line, a gentle sine drifts when on and eases flat when off, with the same ink press (ink-button.js, kind 'sound').
 import { bindInk } from './ink-button.js';
@@ -36,14 +39,47 @@ function unlock() {
   setTimeout(() => { gesture = false; }, 0);
   if (document.hidden) return;
   build();
-  if (ctx && ctx.state !== 'running') { const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); }
+  if (ctx && ctx.state !== 'running') { const p = ctx.resume(); if (p && p.then) p.then(music, () => {}); }
+  else if (ctx && !mus) music();
 }
 ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach((t) => document.addEventListener(t, unlock, { capture: true, passive: true }));
 document.addEventListener('visibilitychange', () => {
   if (!ctx) return;
   if (document.hidden) ctx.suspend().catch(() => {});
-  else ctx.resume().catch(() => {});
+  else ctx.resume().then(() => { if (!mus) music(); }, () => {});
 });
+
+// ---------- background loop ----------
+const MUSIC = 0.1;                 // about -20 dB, well under the UI sounds
+let mus = null, duckT = 0;
+const musFade = (to, sec) => {
+  if (!mus) return;
+  const g = mus.gain.gain, t = ctx.currentTime;
+  g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(to, t + sec);
+};
+function music() {
+  if (!ctx || muted || document.hidden || ctx.state !== 'running') return;
+  if (mus) { musFade(MUSIC, 1.6); return; }
+  mus = { gain: ctx.createGain(), duck: ctx.createGain(), src: null };
+  mus.gain.gain.value = 0; mus.gain.connect(mus.duck); mus.duck.connect(ctx.destination);
+  const opus = !!document.createElement('audio').canPlayType('audio/ogg; codecs="opus"');
+  const load = (url) => fetch(url).then((r) => { if (!r.ok) throw 0; return r.arrayBuffer(); })
+    .then((b) => new Promise((res, rej) => ctx.decodeAudioData(b, res, rej)));
+  (opus ? load('./media/loop.ogg').catch(() => load('./media/loop.mp3')) : load('./media/loop.mp3')).then((buf) => {
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    // loop on exactly the 8 bars (encoders may pad the end)
+    src.loopStart = 0; src.loopEnd = Math.min(8 * 4 * 60 / 84, buf.duration);
+    src.connect(mus.gain); src.start(); mus.src = src;
+    if (!muted) musFade(MUSIC, 2.5);
+  }).catch(() => { mus = null; });
+}
+// a UI sound dips the loop a little, then lets it back up
+function duck() {
+  if (!mus || !mus.src || muted) return;
+  const t = ctx.currentTime; if (t - duckT < 0.1) return; duckT = t;
+  const g = mus.duck.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t);
+  g.linearRampToValueAtTime(0.6, t + 0.04); g.setTargetAtTime(1, t + 0.14, 0.25);
+}
 
 // a sound may start when the context runs, or inside the gesture that is unlocking it right now
 const ready = () => !muted && ctx && !document.hidden && (ctx.state === 'running' || gesture || performance.now() - gestureT < 60);
@@ -59,6 +95,7 @@ function tone({ f = 600, f2 = 0, type = 'sine', g = 0.2, a = 0.004, dur = 0.08, 
   if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + (glide || dur));
   v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g, t + a); v.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   o.connect(v); v.connect(out); o.start(t); o.stop(t + dur + 0.02);
+  if (g >= 0.045) duck();
   return o;
 }
 // a soft breath of filtered noise
@@ -69,6 +106,7 @@ function air({ f = 1200, f2 = 0, q = 1, type = 'bandpass', g = 0.1, a = 0.01, du
   if (f2) { fl.frequency.exponentialRampToValueAtTime(f2, t + dur * peak); fl.frequency.exponentialRampToValueAtTime(Math.max(80, f * 0.8), t + dur); }
   v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g, t + Math.max(a, 0.002)); v.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   s.connect(fl); fl.connect(v); v.connect(out); s.start(t, Math.random() * 0.3); s.stop(t + dur + 0.02);
+  if (g >= 0.06) duck();
 }
 
 // pentatonic scale for letters: a soft, always-in-tune run
@@ -106,6 +144,10 @@ const S = {
     v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(0.08, t + 0.01); v.gain.exponentialRampToValueAtTime(0.0001, t + 0.36);
     o.connect(v); v.connect(out); o.start(t); o.stop(t + 0.38);
   },
+  // a 3D scene under the pointer: a soft round bloop
+  hum() { if (!ready() || !gate('hum', 160) || !take(0.14)) return; const f = vary(330, 0.06); tone({ f, f2: f * 1.35, g: 0.045, a: 0.008, dur: 0.12, glide: 0.07 }); },
+  // a finger or a held mouse sliding across a surface: a faint soft brush, louder when faster
+  brush(speed) { if (!ready() || !gate('brush', 75) || !take(0.07)) return; const k = Math.min(1, speed / 30); air({ f: vary(1300 + 1300 * k, 0.12), q: 1.2, g: 0.008 + 0.022 * k, a: 0.012, dur: 0.065 }); },
   // a step on the budget meter
   step(f, g = 0.03, at = 0) { if (!ready() || !take(0.05 + at)) return; tone({ f: vary(f, 0.01), type: 'triangle', g, dur: 0.04, at }); },
   // a section coming in: barely there
@@ -159,17 +201,29 @@ if (btn) {
     try { m ? localStorage.setItem(KEY, '1') : localStorage.removeItem(KEY); } catch (_) {}
     btn.setAttribute('aria-pressed', String(!m)); btn.setAttribute('aria-label', m ? 'Sound off' : 'Sound on');
     if (ctx && out) { const t = ctx.currentTime; out.gain.cancelScheduledValues(t); out.gain.setValueAtTime(out.gain.value, t); out.gain.linearRampToValueAtTime(m ? 0 : MASTER, t + (m ? 0.32 : 0.02)); }
+    if (m) musFade(0, 0.7); else music();
     kick();
   };
   btn.setAttribute('aria-pressed', String(!muted)); btn.setAttribute('aria-label', muted ? 'Sound off' : 'Sound on');
   btn.addEventListener('click', () => { if (muted) { set(false); S.on(); } else { S.off(); set(true); } });
   btn.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') S.tick(0.8); });
+  btn.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') S.tick(0.8); }, { passive: true });
 }
 
 // ---------- interactions ----------
 const mouse = (e) => e.pointerType === 'mouse';
 const hover = (el, fn) => el.addEventListener('pointerenter', (e) => { if (mouse(e)) fn(e); }, { passive: true });
 const inside = (r, x, y) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+const P = { passive: true };
+// drag across a surface (a held mouse, or a finger on touch where there is no hover): a faint brush
+const brushOn = (el, lvl = 1) => {
+  let lx = 0, ly = 0, lt = 0;
+  const mv = (x, y) => { const t = performance.now(), v = Math.hypot(x - lx, y - ly) / Math.max(1, t - lt) * 16; lx = x; ly = y; lt = t; if (v > 1.5) S.brush(v * lvl); };
+  el.addEventListener('pointermove', (e) => { if (!mouse(e)) return; if (e.buttons & 1) mv(e.clientX, e.clientY); else { lx = e.clientX; ly = e.clientY; lt = performance.now(); } }, P);
+  el.addEventListener('touchstart', (e) => { const t = e.touches[0]; if (t) { lx = t.clientX; ly = t.clientY; lt = performance.now(); } }, P);
+  el.addEventListener('touchmove', (e) => { const t = e.touches[0]; if (t) mv(t.clientX, t.clientY); }, P);
+};
+document.querySelectorAll('.pill, .tile, .card, .chips span, .meter.fit, .band').forEach((el) => brushOn(el, el.classList.contains('band') ? 0.8 : 1));
 
 // "Read the idea": hover tick as the ink starts, low thump on press, ripple on tap, and a soft glide as the page scrolls
 document.querySelectorAll('.pill--ink').forEach((el) => {
@@ -182,8 +236,8 @@ document.querySelectorAll('.pill--ink').forEach((el) => {
 // logos: tick on hover tilt, faint grain while scrubbing, whoosh on the click spin
 document.querySelectorAll('.mark, .foot-mark').forEach((a) => {
   let down = null, moved = false, lx = 0, lt = 0, spinT = 0;
-  hover(a, () => { if (!reduce) S.tick(0.8); });
-  a.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse' && e.button !== 0) return; down = [e.clientX, e.clientY]; moved = false; lx = e.clientX; lt = performance.now(); }, { passive: true });
+  hover(a, () => S.tick(0.8));
+  a.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse' && e.button !== 0) return; if (!mouse(e)) S.tick(0.8); down = [e.clientX, e.clientY]; moved = false; lx = e.clientX; lt = performance.now(); }, { passive: true });
   a.addEventListener('pointermove', (e) => {
     if (!down) return;
     if (Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) moved = true;
@@ -205,7 +259,7 @@ document.querySelectorAll('a').forEach((a) => {
   if (a.classList.contains('foot-name')) {
     hover(a, () => S.zip());
     a.addEventListener('pointerdown', (e) => { if (!mouse(e)) S.zip(); }, { passive: true });
-  } else hover(a, () => S.tick());
+  } else { hover(a, () => S.tick()); a.addEventListener('pointerdown', (e) => { if (!mouse(e)) S.tick(0.8); }, P); }
 });
 // keyboard focus: a quiet tick
 document.addEventListener('focusin', (e) => { const t = e.target; if (t && t.matches && t.matches(':focus-visible')) S.tick(0.7); });
@@ -219,16 +273,37 @@ document.querySelectorAll('[data-view]').forEach((el) => {
   el.addEventListener('pointerup', (e) => { if (mouse(e)) end(e.clientX, e.clientY); }, { passive: true });
   el.addEventListener('touchstart', (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; st = performance.now(); }, { passive: true });
   el.addEventListener('touchend', (e) => { const t = e.changedTouches[0]; if (Math.hypot(t.clientX - sx, t.clientY - sy) < 10 && performance.now() - st < 450) { S.squish(); setTimeout(() => S.boop(), 40); } }, { passive: true });
+  // hover: a soft bloop; grab a model: stretch, drag: creak, let go: springy wobble; slide across: brush
+  hover(el, () => S.hum());
+  let held = false, lx = 0, ly = 0, lt = 0;
+  const view = () => (window.__views || []).find((v) => v.el === el);
+  const mv = (x, y) => {
+    const t = performance.now(), sp = Math.hypot(x - lx, y - ly) / Math.max(1, t - lt) * 16; lx = x; ly = y; lt = t;
+    const v = view(), g = !!(v && v.inp.down && v.inp.grab);
+    if (g && !held) { held = true; S.stretch(); }
+    if (g) { if (sp > 1.5) S.creak(sp); } else if (sp > 1.5) S.brush(sp);
+  };
+  const release = () => { if (held) { held = false; S.spring(); } };
+  el.addEventListener('pointermove', (e) => { if (!mouse(e)) return; if (e.buttons & 1) mv(e.clientX, e.clientY); else { lx = e.clientX; ly = e.clientY; lt = performance.now(); } }, P);
+  el.addEventListener('touchstart', (e) => { const t = e.touches[0]; if (t) { lx = t.clientX; ly = t.clientY; lt = performance.now(); } }, P);
+  el.addEventListener('touchmove', (e) => { const t = e.touches[0]; if (t) mv(t.clientX, t.clientY); }, P);
+  ['pointerup', 'pointerleave', 'touchend', 'touchcancel'].forEach((ev) => el.addEventListener(ev, release, P));
 });
 
+// meters: a tick on hover, and on touch press
+document.querySelectorAll('.meter').forEach((el) => { hover(el, () => S.tick(0.7)); el.addEventListener('pointerdown', (e) => { if (!mouse(e)) S.tick(0.7); }, P); });
+// cards and tiles: a low soft knock as they lift (a tick with reduced motion); the same on touch press
+document.querySelectorAll('.tile, .card').forEach((el) => {
+  const f = () => (reduce ? S.tick(0.7) : S.lift());
+  hover(el, f); el.addEventListener('touchstart', f, P);
+});
+// chips: tick on hover, thump on press
+document.querySelectorAll('.chips span').forEach((el) => { hover(el, () => S.tick(0.8)); el.addEventListener('pointerdown', () => S.thump(), P); });
+// band: a low brake as it slows under the pointer or finger
+const band = document.querySelector('.band');
+if (band) { hover(band, () => (reduce ? S.tick(0.7) : S.brake())); band.addEventListener('touchstart', () => (reduce ? S.tick(0.7) : S.brake()), P); }
+
 if (!reduce) {
-  // cards and tiles lift on hover: a low soft knock
-  document.querySelectorAll('.tile, .card').forEach((el) => hover(el, () => S.lift()));
-  // chips: tick on hover, thump on press
-  document.querySelectorAll('.chips span').forEach((el) => { hover(el, () => S.tick(0.8)); el.addEventListener('pointerdown', () => S.thump(), { passive: true }); });
-  // band: a low brake as it slows under the pointer or finger
-  const band = document.querySelector('.band');
-  if (band) { hover(band, () => S.brake()); band.addEventListener('touchstart', () => S.brake(), { passive: true }); }
 
   // rainbow letters: pitched pops on hover bounce, a wave on tap, stretch on grab, creak on drag, springy release
   [['h1', 523.25], ['.close h2', 392]].forEach(([sel, base]) => {

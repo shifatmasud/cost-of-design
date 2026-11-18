@@ -184,6 +184,23 @@ p{text-wrap:pretty}
 h1,h2,h3,.label,.lede,.intro,.tile p,.meter .name,.meter .note,.say,.close p,.chips span,.pill,footer .wrap{text-wrap:balance}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/","motion":"https://cdn.jsdelivr.net/npm/motion@14.14.0/+esm","lenis":"https://cdn.jsdelivr.net/npm/lenis@1.3.27/+esm"}}</script>
+<script>
+// One shared pointer for every 3D model. Passive listeners only store where the pointer or finger is.
+(() => {
+  const P = window.__ptr = { x: 0, y: 0, cx: -1, cy: -1, t: 0, n: 0, touch: false, down: false, seen: false, wake: null };
+  const put = (cx, cy, touch) => { P.cx = cx; P.cy = cy; P.x = cx / innerWidth - 0.5; P.y = cy / innerHeight - 0.5; P.t = performance.now(); P.touch = touch; P.seen = true; P.n++; if (P.wake) P.wake(); };
+  const up = () => { P.down = false; P.t = performance.now(); P.n++; if (P.wake) P.wake(); };
+  const o = { passive: true, capture: true };
+  addEventListener('pointermove', (e) => put(e.clientX, e.clientY, e.pointerType !== 'mouse'), o);
+  addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') P.down = true; put(e.clientX, e.clientY, e.pointerType !== 'mouse'); }, o);
+  addEventListener('touchstart', (e) => { const t = e.touches[0]; if (t) { P.down = true; put(t.clientX, t.clientY, true); } }, o);
+  addEventListener('touchmove', (e) => { const t = e.touches[0]; if (t) put(t.clientX, t.clientY, true); }, o);
+  addEventListener('touchend', (e) => { if (!e.touches.length) up(); }, o);
+  addEventListener('touchcancel', (e) => { if (!e.touches.length) up(); }, o);
+  // a finger that lifted lets the models drift home after a short while; a mouse stays where it is
+  P.on = (now) => P.seen && !(P.touch && !P.down && now - P.t > 1500);
+})();
+</script>
 </head>
 <body>
 
@@ -549,7 +566,6 @@ document.querySelectorAll('.pill--ink').forEach((el) => bindInk(el, 'cta'));
 const state = { hero: 0, close: 0, px: 0, py: 0, tx: 0, ty: 0 };
 scroll((p) => { state.hero = p; }, { target: document.querySelector('.hero'), offset: ['start start', 'end start'] });
 scroll((p) => { state.close = p; }, { target: document.querySelector('.close'), offset: ['start end', 'end end'] });
-addEventListener('pointermove', (e) => { state.tx = e.clientX / innerWidth - 0.5; state.ty = e.clientY / innerHeight - 0.5; }, { passive: true });
 window.__state = state;
 </script>
 <script type="module" id="scene-inline">
@@ -565,7 +581,8 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, low ? 1.5 : 2));
 renderer.setClearColor(0x000000, 0);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const S = () => window.__state || { hero: 0, close: 0, px: 0, py: 0, tx: 0, ty: 0 };
+const S0 = { hero: 0, close: 0, px: 0, py: 0, tx: 0, ty: 0 };
+const S = () => window.__state || S0;
 
 const C = { yellow: 0xffd876, teal: 0x8bdfdd, green: 0x8ed993, peach: 0xffc9b8, orange: 0xf8ab41, coral: 0xf2876a, white: 0xfaf7f2, lilac: 0xc3a8ff, pink: 0xff8fc0, ink: 0x332b29 };
 
@@ -646,7 +663,9 @@ function stage(scene) {
 const easeOutBack = (x) => { const c1 = 1.5, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
 const easeOutBounce = (x) => { const n = 7.5625, d = 2.75; if (x < 1 / d) return n * x * x; if (x < 2 / d) return n * (x -= 1.5 / d) * x + 0.75; if (x < 2.5 / d) return n * (x -= 2.25 / d) * x + 0.9375; return n * (x -= 2.625 / d) * x + 0.984375; };
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
-const pointer = () => { const s = S(); s.px += (s.tx - s.px) * 0.05; s.py += (s.ty - s.py) * 0.05; return s; };
+const pointer = () => S();   // eased once per frame in the render loop from the shared window pointer
+// where the pointer is, seen from one view: x.v.gx / x.v.gy (eased), x.v.grec while it moved lately
+const look = (x, kx, ky, fx, fy) => x.inp.active ? [x.inp.nx * kx, x.inp.ny * ky] : x.v.grec ? [x.v.gx * kx * 0.8, x.v.gy * ky * 0.8] : [fx, fy];
 
 // ---- touch and hover for the 3D ----
 // Each shape can get a tiny spring (no physics library). Mouse hover pushes shapes away (or pulls, when push < 0).
@@ -796,7 +815,7 @@ const builders = {
     });
     return (t, cam, aspect, dt) => {
       const tt = reduce ? 0 : t;
-      const lean = x.inp.active && !reduce ? -x.inp.nx * 0.13 : 0;
+      const lean = x.inp.active && !reduce ? -x.inp.nx * 0.13 : -S().px * 0.16;
       const goal = lean + Math.sin(tt * 0.55) * 0.07 * (x.inp.active ? 0.3 : 1);
       tv += ((goal - tilt) * 40 - tv * 6) * dt; tilt += tv * dt;
       plank.rotation.z = Math.max(-0.3, Math.min(0.3, tilt));
@@ -831,6 +850,7 @@ const builders = {
       else if (n < sizes.length) { st[n].in = t; st[n].out = -99; n++; }
     });
     return (t, cam) => {
+      const sp = S(); root.rotation.y = 0.55 + sp.px * 0.35; root.rotation.x = sp.py * 0.1;
       if (mode === 'hand' && t - idle > 9) { for (let i = 0; i < n; i++) st[i].out = t; n = 0; mode = 'leave'; a0 = t + 0.8; }
       if (mode === 'leave' && t >= a0) mode = 'auto';
       let landed = 0, top = -0.93;
@@ -888,6 +908,7 @@ const builders = {
       });
       let ty, tp;
       if (x.inp.active) { ty = x.inp.nx * 0.8; tp = -x.inp.ny * 0.65; }
+      else if (x.v.grec) { ty = Math.max(-1, Math.min(1, x.v.gx)) * 0.7; tp = -Math.max(-1, Math.min(1, x.v.gy)) * 0.55; }
       else { const p = things[k].position; ty = Math.atan2(p.x, 4) * 1.1; tp = -Math.atan2(p.y, 4) * 1.1; }
       yaw += (ty - yaw) * 0.12; pitch += (tp - pitch) * 0.12;
       eye.rotation.set(pitch, yaw, 0);
@@ -926,7 +947,8 @@ const builders = {
       let room = 0; P.forEach((p) => { room += p.off.length(); }); room /= P.length;
       b.userData.squint = 0.35 + Math.min(0.65, room * 2.2);
       b.rotation.set(Math.sin(tt * 3) * 0.08, 0.2 + Math.sin(tt * 2.3) * 0.1, Math.sin(tt * 4) * 0.06);
-      blink(b, t, Math.sin(tt * 3), Math.cos(tt * 2.6));
+      const sn = S(); scene.rotation.y = sn.px * 0.3; scene.rotation.x = sn.py * 0.12;
+      blink(b, t, ...look(x, 1.6, 1.4, Math.sin(tt * 3), Math.cos(tt * 2.6)));
       cam.position.set(0, 0, 9);
     };
   },
@@ -948,6 +970,7 @@ const builders = {
       b.scale.set(1 + (1 - sq) * 0.6, sq, 1 + (1 - sq) * 0.6);
       b.position.y = -0.2 + hop - (1 - sq) * 0.5;
       b.rotation.y = 0.35 + Math.sin(tt * 0.4) * 0.25 - s.px * 0.4;
+      b.rotation.x = s.py * 0.12;
       blink(b, t, x.inp.active ? x.inp.nx * 2.2 : s.px * 2.2, x.inp.active ? x.inp.ny * 2 : -s.py * 2);
       cam.position.set(0, 1.5, 7.4);
     };
@@ -974,8 +997,8 @@ const builders = {
       cap.rotation.y = tt * 0.3;
       rv += (-rs * 150 - rv * 8) * dt; rs += rv * dt;
       room.scale.setScalar((0.3 + Math.sin(tt * 1.6) * 0.025) * (1 + rs * 0.35));
-      root.rotation.y = -0.4 + S().px * 0.25;
-      blink(b, t, 0.6, 0);
+      const sb = S(); root.rotation.y = -0.4 + sb.px * 0.3; root.rotation.x = sb.py * 0.1;
+      blink(b, t, ...look(x, 1.4, 1.2, 0.6, 0));
       cam.position.set(0, 3.2, 8.2);
     };
   },
@@ -994,12 +1017,12 @@ const builders = {
     return (t, cam, aspect, dt) => {
       const s = S();
       const tt = reduce ? 0 : t;
-      b.rotation.y = 0.3 + Math.sin(tt * 0.35) * 0.2 - s.close * 0.3;
+      b.rotation.y = 0.3 + Math.sin(tt * 0.35) * 0.2 - s.close * 0.3 + s.px * 0.4; b.rotation.x = s.py * 0.12;
       hv += (-hp * 90 - hv * 7) * dt; hp += hv * dt;
       halo.position.y = 0.95 + Math.sin(tt * 0.8) * 0.06 + hp * 0.25; halo.rotation.set(Math.PI / 2 - 0.25 + s.close * 0.15, 0, Math.sin(tt * 0.5) * 0.1); halo.scale.setScalar(0.55 * (1 + hp * 0.15));
       const a = tt * 0.6; dot.position.set(Math.cos(a) * 1.5, 0.2 + Math.sin(a * 0.5) * 0.2, Math.sin(a) * 1.5);
       b.userData.squint = s.close > 0.92 ? 0.35 : 1;
-      blink(b, t, x.inp.active ? x.inp.nx * 1.6 : Math.cos(a) * 0.8, x.inp.active ? x.inp.ny * 1.4 : 0.2);
+      blink(b, t, ...look(x, 1.6, 1.4, Math.cos(a) * 0.8, 0.2));
       cam.position.set(0, 1.4, 9);
     };
   }
@@ -1022,18 +1045,36 @@ const veilCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1); veilCam.positi
 let lastY = -1;
 const io = new IntersectionObserver((es) => es.forEach((e) => { const v = views.find((x) => x.el === e.target); if (v) v.on = e.isIntersecting; }), { rootMargin: '120px 0px' });
 views.forEach((v) => io.observe(v.el));
+window.__views = views;
 
 function size() {
   const w = canvas.clientWidth, h = canvas.clientHeight;
   const c = renderer.domElement;
   const pr = renderer.getPixelRatio();
-  if (c.width !== Math.floor(w * pr) || c.height !== Math.floor(h * pr)) renderer.setSize(w, h, false);
+  if (c.width !== Math.floor(w * pr) || c.height !== Math.floor(h * pr)) { renderer.setSize(w, h, false); lastKey = ''; }
   return h;
 }
 const t0 = performance.now();
-let drew = true, lastT = 0;
+let drew = true, lastT = 0, lastKey = '', ptrOn = false;
+const PTR = window.__ptr || { x: 0, y: 0, cx: -1, cy: -1, t: 0, n: 0, on: () => false };
+const AMT = reduce ? 0.35 : 1;          // reduced motion: the models still lean, just much less
+const ease = (k, dt) => 1 - Math.exp(-k * dt);   // damped lerp, same feel at any frame rate
+// a cheap fingerprint of what a view shows; when nothing changed, the frame is not drawn again
+function sig(v, r) {
+  let h = (Math.round(r.left) * 31 + Math.round(r.top) * 17 + Math.round(r.width) * 7 + Math.round(r.height)) | 0;
+  v.scene.traverseVisible((o) => {
+    const p = o.position, q = o.quaternion, c = o.scale;
+    h = (h * 31 + Math.round(p.x * 2000)) | 0; h = (h * 31 + Math.round(p.y * 2000)) | 0; h = (h * 31 + Math.round(p.z * 2000)) | 0;
+    h = (h * 31 + Math.round(q.x * 4000)) | 0; h = (h * 31 + Math.round(q.y * 4000)) | 0; h = (h * 31 + Math.round(q.z * 4000)) | 0;
+    h = (h * 31 + Math.round(c.x * 2000)) | 0; h = (h * 31 + Math.round(c.y * 2000)) | 0; h = (h * 31 + Math.round(c.z * 2000)) | 0;
+  });
+  const cp = v.cam.position;
+  return (h * 31 + Math.round((cp.x + cp.y * 3 + cp.z * 7) * 2000)) | 0;
+}
 function frame(now) {
   requestAnimationFrame(frame);
+  window.__glDriver = true;
+  if (document.hidden) return;
   // smooth scroll steps first, so scrollY below is this frame's value
   if (window.__lenis) { window.__lenisDriver = true; window.__lenis.raf(now); }
   const H = size();
@@ -1041,17 +1082,31 @@ function frame(now) {
   if (y !== lastY) { canvas.style.transform = `translate3d(0,${y}px,0)`; lastY = y; }
   const t = (performance.now() - t0) / 1000;
   const dt = Math.min(1 / 30, Math.max(0.001, t - lastT)); lastT = t;
+  // the shared pointer: read once per frame, eased toward where it is anywhere in the viewport
+  const pnow = performance.now(), on = PTR.on(pnow);
+  if (on !== ptrOn) { ptrOn = on; PTR.n++; }
+  const st = S(), k1 = ease(3.2, dt);
+  st.tx = on ? PTR.x * AMT : 0; st.ty = on ? PTR.y * AMT : 0;
+  st.px += (st.tx - st.px) * k1; st.py += (st.ty - st.py) * k1;
+  const grec = on && pnow - PTR.t < 2500;
+  if (window.__logoStep) window.__logoStep(pnow);
   const live = views.filter((v) => v.on);
   if (!live.length && !drew) return;
-  renderer.setScissorTest(false); renderer.clear(); renderer.setScissorTest(true);
-  drew = false;
+  // step every view that is on screen; draw only when one of them changed
+  const vis = [];
+  let key = '';
   for (const v of live) {
     const r = v.el.getBoundingClientRect();
     if (r.bottom < 0 || r.top > H || r.width < 2) continue;
-    const b = H - r.bottom;
-    renderer.setViewport(r.left, b, r.width, r.height);
-    renderer.setScissor(r.left, b, r.width, r.height);
     const aspect = r.width / r.height; v.aspect = aspect;
+    // where the pointer is, seen from this view (about -1..1 across it, up is +)
+    if (on) {
+      const gx = (PTR.cx - (r.left + r.width / 2)) / (r.width / 2), gy = -(PTR.cy - (r.top + r.height / 2)) / (r.height / 2);
+      const k2 = ease(5, dt);
+      v.gx = (v.gx || 0) + (Math.max(-1.6, Math.min(1.6, gx)) * AMT - (v.gx || 0)) * k2;
+      v.gy = (v.gy || 0) + (Math.max(-1.6, Math.min(1.6, gy)) * AMT - (v.gy || 0)) * k2;
+    }
+    v.grec = grec;
     restore(v);
     v.update(t, v.cam, aspect, dt);
     // tight depth range around each small scene: keeps depth precise on phone GPUs, so outlines, eyes and contacts never fight
@@ -1059,6 +1114,17 @@ function frame(now) {
     v.cam.near = Math.max(0.5, dist - 6); v.cam.far = dist + 8;
     v.cam.aspect = aspect; v.cam.lookAt(0, 0, 0); v.cam.updateProjectionMatrix();
     physics(v, dt, t);
+    v.r = r; vis.push(v);
+    key += (v.fade ? 'f' + getComputedStyle(v.fade).opacity : '') + sig(v, r) + ',';
+  }
+  if (key === lastKey && (vis.length || !drew)) return;   // settled: keep the last image, no GPU work
+  lastKey = key;
+  renderer.setScissorTest(false); renderer.clear(); renderer.setScissorTest(true);
+  drew = false;
+  for (const v of vis) {
+    const r = v.r, b = H - r.bottom;
+    renderer.setViewport(r.left, b, r.width, r.height);
+    renderer.setScissor(r.left, b, r.width, r.height);
     renderer.render(v.scene, v.cam);
     if (v.fade) {
       const o = +getComputedStyle(v.fade).opacity;
@@ -1090,17 +1156,39 @@ const logos = [...document.querySelectorAll('.mark, .foot-mark')].map((a) => ({
   spin: -1, t0: 0, down: null, drag: false, touch: false, scrub: false, sx: 0, sr: 0, hist: []
 }));
 let draw = null, raf = 0, last = 0;
-const kick = () => { if (draw && !raf) { last = performance.now(); raf = requestAnimationFrame(tick); } };
+// the logos follow the shared window pointer too, stepped inside the page's one render loop (no loop of their own)
+const P = window.__ptr;
+let seenN = -1, awake = false;
+const kick = () => {
+  if (!draw) return;
+  if (!awake) { awake = true; last = performance.now(); }
+  if (!window.__glDriver && !raf) raf = requestAnimationFrame(tick);   // fallback when the 3D scene loop is missing
+};
+const regoal = () => { seenN = -1; kick(); };
 const clamp1 = (v) => Math.max(-1, Math.min(1, v));
 // tilt maps to the whole hit area: its edges give the full 18 degrees
+// past the hit area it keeps leaning toward the pointer, a little less the farther away it is
+const fall = (d, h) => { const a = Math.abs(d); return Math.sign(d) * (a <= h ? a / h : Math.max(0.45, 1 - 0.55 * Math.min(1, (a - h) / 320))); };
 const aim = (L, x, y) => {
-  if (reduce.matches || L.spin >= 0 || L.scrub) return;
+  if (L.spin >= 0 || L.scrub) return;
+  const k = reduce.matches ? 0.35 : 1;
   const r = L.box.getBoundingClientRect(), [pt, pr, pb, pl] = L.pad;
   const dx = x - (r.left + r.width / 2), dy = y - (r.top + r.height / 2);
-  const nx = clamp1(dx / (r.width / 2 + (dx < 0 ? pl : pr)));
-  const ny = clamp1(dy / (r.height / 2 + (dy < 0 ? pt : pb)));
-  L.gy = nx * MAX; L.gx = ny * MAX; kick();
+  const nx = fall(dx, r.width / 2 + (dx < 0 ? pl : pr));
+  const ny = fall(dy, r.height / 2 + (dy < 0 ? pt : pb));
+  L.gy = nx * MAX * k; L.gx = ny * MAX * k; kick();
 };
+// once per frame, only when the shared pointer changed: re-aim the logos that are on screen
+const aimAll = () => {
+  const on = P.on(performance.now());
+  for (const L of logos) {
+    if (!L.vis || L.spin >= 0 || L.scrub) continue;
+    if (on) aim(L, P.cx, P.cy); else if (L.gx || L.gy) { L.gx = L.gy = 0; kick(); }
+  }
+};
+logos.forEach((L) => { L.vis = true; });
+const lio = new IntersectionObserver((es) => es.forEach((e) => { const L = logos.find((o) => o.a === e.target); if (L) { L.vis = e.isIntersecting; if (L.vis) regoal(); } }));
+logos.forEach((L) => lio.observe(L.a));
 const rest = (L) => { L.gx = L.gy = 0; kick(); };
 // cubic-bezier(0.65, 0, 0.35, 1): soft start, glides into the end
 const bez = (x1, y1, x2, y2) => {
@@ -1151,14 +1239,14 @@ logos.forEach((L) => {
   }, { passive: true });
   const up = (e) => {
     const wasScrub = L.scrub; endScrub(L);
-    if (e.pointerType !== 'mouse') { L.touch = false; if (!wasScrub && L.spin < 0) rest(L); }
+    if (e.pointerType !== 'mouse') { L.touch = false; if (!wasScrub && L.spin < 0) regoal(); }
     else if (wasScrub) aim(L, e.clientX, e.clientY);
     setTimeout(() => { L.down = null; }, 0);
   };
   a.addEventListener('pointerup', up, { passive: true });
   a.addEventListener('lostpointercapture', () => endScrub(L), { passive: true });
-  a.addEventListener('pointercancel', () => { endScrub(L); L.touch = false; L.down = null; rest(L); }, { passive: true });
-  a.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !L.scrub) { if (!(e.buttons & 1)) L.down = null; rest(L); } }, { passive: true });
+  a.addEventListener('pointercancel', () => { endScrub(L); L.touch = false; L.down = null; regoal(); }, { passive: true });
+  a.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !L.scrub) { if (!(e.buttons & 1)) L.down = null; regoal(); } }, { passive: true });
   a.addEventListener('click', (e) => {
     // a drag or a scrub never opens the link
     if (L.drag && e.detail) { e.preventDefault(); L.drag = false; return; }
@@ -1175,7 +1263,17 @@ addEventListener('pageshow', (e) => { if (e.persisted) logos.forEach((L) => { L.
 
 function tick() {
   raf = 0;
-  const now = performance.now();
+  if (window.__glDriver) return;   // the scene loop steps the logos now
+  if (P && P.n !== seenN) { seenN = P.n; aimAll(); }
+  if (step(performance.now())) raf = requestAnimationFrame(tick); else awake = false;
+}
+window.__logoStep = (now) => {
+  if (!draw) return;
+  if (P && P.n !== seenN) { seenN = P.n; aimAll(); }
+  if (awake && !step(now)) awake = false;
+};
+if (P) P.wake = () => { if (!window.__glDriver && draw) { if (P.n !== seenN) { seenN = P.n; aimAll(); } } };
+function step(now) {
   const dt = Math.min(1 / 30, Math.max(1 / 240, (now - last) / 1000)); last = now;
   let busy = false;
   for (const L of logos) {
@@ -1203,7 +1301,7 @@ function tick() {
     if (moved) { draw(L); busy = true; }
     if (go) { L.a.dispatchEvent(new CustomEvent('logospun')); location.assign(L.a.href || URL_); }
   }
-  if (busy) raf = requestAnimationFrame(tick);
+  return busy;
 }
 
 try {
