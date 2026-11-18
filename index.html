@@ -154,9 +154,11 @@ footer .dim{color:rgba(245,243,239,.62)}
 .m>.mi{display:inline-block}
 .js .m>.mi{transform:translateY(125%)}
 .js .pop b{transform:scale(0)}
-/* hero button: hidden but keeps its space until the intro shows it last (not clickable or focusable till then) */
-.js .hero .cta{opacity:0;visibility:hidden}
+/* hero button: hidden but keeps its space until the intro shows it last (not clickable or focusable till then). No fade: it grows in by scale only */
+.js .hero .cta{transform:scale(0);visibility:hidden}
 .js .hero .cta.on{visibility:visible}
+/* during the hero intro only: its moving parts get their own layers up front, so the compositor moves them with no re-raster */
+.intro-run .hero .m>.mi,.intro-run .hero .pop b,.intro-run .hero .cta{will-change:transform}
 .odo{display:inline-flex}
 .reel{position:relative;display:inline-block}
 .reel>.sz{visibility:hidden}
@@ -186,6 +188,18 @@ footer .dim{color:rgba(245,243,239,.62)}
 p{text-wrap:pretty}
 h1,h2,h3,.label,.lede,.intro,.tile p,.meter .name,.meter .note,.say,.close p,.chips span,.pill,footer .wrap{text-wrap:balance}
 </style>
+<script>
+// Hero intro gate: heavy work (other 3D scenes, Rapier, music decode, logo mesh) waits until the intro has landed,
+// so the main thread stays free while the hero animates. Safety: it opens by 9 s no matter what.
+(() => {
+  let open; const p = new Promise((r) => { open = r; });
+  window.__introDone = p;
+  window.__introOpen = () => { if (!window.__introIsDone) { window.__introIsDone = true; open(); } };
+  setTimeout(window.__introOpen, 9000);
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) window.__introOpen();   // no intro: nothing to wait for
+  window.__idle = (f, ms) => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: ms || 1500 }) : setTimeout(f, 120));
+})();
+</script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/","motion":"https://cdn.jsdelivr.net/npm/motion@14.14.0/+esm","lenis":"https://cdn.jsdelivr.net/npm/lenis@1.3.27/+esm"}}</script>
 <script>
 // One shared pointer for every 3D model. Passive listeners only store where the pointer or finger is.
@@ -415,45 +429,86 @@ if (!reduce) {
   // hero intro, in order of the visual hierarchy, each step chained on a real end signal (each has a backup timer):
   // 1. the 3D scene scales up (Three.js, scene-inline). 2. The title starts when the 3D is 65% of the way in ('hero3d-lead').
   // 3. The subtitle slides up when the last rainbow letter has landed. 4. The button scales in when the subtitle's last word has landed.
+  // Smoothness: nothing starts until the fonts are ready and the hero 3D has drawn its first (pre-compiled) frame. Every text and
+  // button move is a native Web Animation on transform only, so the compositor runs it and main-thread work can't make it stutter.
+  // Nothing fades: words slide from behind their mask, letters and the button only scale. Heavy work waits for window.__introDone.
   const T = (window.__heroIntro = { t0: performance.now() });
   const mark = (k) => { T[k] = Math.round(performance.now() - T.t0); };
   const HERO = { dur: 1.2, gap: 0.12, start: 0.05, pop: 0.3 };
   const heroView = document.querySelector('[data-view="hero"]');
   const heroOff = () => { const r = heroView.getBoundingClientRect(); return r.bottom < 0 || r.top > innerHeight; };
-  // the 3D leads; if WebGL is slow, off screen or missing, the title goes anyway (at once when the hero is scrolled away, else after 1.5 s)
-  const lead = new Promise((r) => {
+  document.documentElement.classList.add('intro-run');   // will-change: transform on the hero parts, for the intro only
+  // cubic-bezier as a function, to find when an ease is 97% of the way (a step "lands" there, not after its invisible tail)
+  const bezier = (x1, y1, x2, y2) => {
+    const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx, cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+    const X = (t) => ((ax * t + bx) * t + cx) * t, Y = (t) => ((ay * t + by) * t + cy) * t;
+    return (x) => { let lo = 0, hi = 1; for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (X(m) < x) lo = m; else hi = m; } return Y((lo + hi) / 2); };
+  };
+  const at97 = (f) => { let lo = 0, hi = 1; for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (f(m) < 0.97) lo = m; else hi = m; } return hi; };
+  const EASE = `cubic-bezier(${ease.join(',')})`, EASE97 = at97(bezier(...ease));
+  // the letters' spring (visualDuration 0.8, no bounce = critically damped), written out as a linear() easing for the compositor
+  const W = (2 * Math.PI) / (0.8 * 1.2), springAt = (t) => 1 - (1 + W * t) * Math.exp(-W * t);
+  const SPRING_DUR = 9.23 / W;   // where it is 99.9% of the way
+  const SPRING97 = 5.36 / W;     // where it is 97% of the way
+  const SPRING = CSS.supports('animation-timing-function', 'linear(0, 1)')
+    ? `linear(${Array.from({ length: 41 }, (_, i) => springAt((i / 40) * SPRING_DUR).toFixed(4)).join(', ')})` : 'cubic-bezier(0.25, 1, 0.5, 1)';
+  // one compositor move: from -> to on transform. landed resolves at the 97% point of the real (on-screen) timeline, or on finish.
+  // When it ends the inline style takes over (unless a hover or drag already set one), and the animation is dropped.
+  const move = (el, from, to, dur, delay, easing, f97) => new Promise((landed) => {
+    let done = false; const land = () => { if (!done) { done = true; landed(); } };
+    let an;
+    try { an = el.animate([{ transform: from }, { transform: to }], { duration: dur * 1000, delay: delay * 1000, easing, fill: 'backwards' }); }
+    catch (e) { el.style.transform = 'none'; return land(); }
+    an.ready.then(() => setTimeout(land, Math.max(0, (delay + dur * f97) * 1000 - (an.currentTime || 0))), land);
+    an.finished.then(() => { if (!el.style.transform) el.style.transform = 'none'; an.cancel(); land(); }, () => { if (!el.style.transform) el.style.transform = 'none'; land(); });
+  });
+  const slide = (el, delay, dur) => move(el, 'translateY(125%)', 'translateY(0%)', dur, delay, EASE, EASE97);
+  // start gate: fonts ready + the hero 3D's first frame on screen (its shaders are compiled before that frame).
+  // If the hero is scrolled away, or WebGL is missing or slow, the gate opens anyway (at once, or after 2.5 s).
+  const firstFrame = new Promise((r) => {
+    if (window.__hero3dReady || window.__hero3dLead) return r();
+    addEventListener('hero3d-ready', () => r(), { once: true });
+    addEventListener('hero3d-lead', () => r(), { once: true });
+    setTimeout(r, heroOff() ? 0 : 2500);
+  });
+  const fonts = document.fonts ? Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 2500))]) : Promise.resolve();
+  const cta = document.querySelector('.hero .cta');
+  const go = Promise.all([fonts, firstFrame]).then(() => {
+    // all layout reads happen here, before anything moves: the button grows from its own centre
+    const a = cta.firstElementChild, cr = cta.getBoundingClientRect(), ar = a.getBoundingClientRect();
+    cta.style.transformOrigin = `${Math.round(ar.left - cr.left + ar.width / 2)}px 50%`;
+    mark('go'); window.__heroGo = true;   // the 3D starts its scale-up on its next frame
+  });
+  // the 3D leads; if WebGL is slow, off screen or missing, the title goes anyway (at once when the hero is scrolled away, else 1.5 s after the start)
+  const lead = go.then(() => new Promise((r) => {
     if (window.__hero3dLead) return r();
     addEventListener('hero3d-lead', () => r(), { once: true });
     setTimeout(r, heroOff() ? 0 : 1500);
-  });
-  // a step counts as done when its animation has visibly landed (Motion's onUpdate passes the mark), not after the spring's
-  // long invisible tail; its finished promise (or an error) also counts, so nothing can hang.
-  const landed = (el, kf, opt, ok) => new Promise((done) => {
-    animate(el, kf, { ...opt, onUpdate: (v) => { if (ok(v)) done(); } }).finished.then(done, done);
-  });
+  }));
   // rainbow words: each letter only scales in, one after another (no blur, no fade, no overshoot). Landed = 97% of full size.
   const popIn = (em, delay) => [...em.querySelectorAll('b')].map((b, i) =>
-    landed(b, { scale: [0, 1] }, { type: 'spring', visualDuration: 0.8, bounce: 0, delay: delay + i * 0.085 }, (v) => v >= 0.97)
+    move(b, 'scale(0)', 'scale(1)', SPRING_DUR, delay + i * 0.085, SPRING, SPRING97 / SPRING_DUR)
   );
-  // title: "The cost of" slides up, then "design" grows in. titleDone = the last rainbow letter has landed (Motion's finished promise).
+  // title: "The cost of" slides up, then "design" grows in. titleDone = the last rainbow letter has landed.
   // A stopped animation or a hidden tab can never leave the rest hidden: errors resolve too, and a 6 s safety net is the last resort.
   const titleDone = lead.then(() => {
     mark('title');
-    animate('h1 .m > .mi', { y: ['125%', '0%'] }, { duration: HERO.dur, delay: stagger(HERO.gap, { startDelay: HERO.start }), ease });
+    document.querySelectorAll('h1 .m > .mi').forEach((w, i) => slide(w, HERO.start + i * HERO.gap, HERO.dur));
     return Promise.all(popIn(document.querySelector('h1 .pop'), HERO.start + 2 * HERO.gap + HERO.pop)).catch(() => {});
   });
-  const heroDone = Promise.race([titleDone, new Promise((r) => setTimeout(r, 6000))]).then(() => mark('letters'));
-  // button: shows last, after the subtitle. It scales up from its own centre (0.85 -> 1) on its wrapper, so the button's own magnet,
-  // squash and ink transforms never fight it. Opacity fades in over the first part. Safety: it shows by 8 s no matter what.
-  const cta = document.querySelector('.hero .cta');
+  const heroDone = Promise.race([titleDone, go.then(() => new Promise((r) => setTimeout(r, 6000)))]).then(() => mark('letters'));
+  // button: shows last, after the subtitle. It grows from its own centre (scale 0 -> 1, no fade) on its wrapper, so the button's own
+  // magnet, squash and ink transforms never fight it. 0.55 s soft ease-out, no overshoot. Safety: it shows by 8 s no matter what.
+  // When it has landed, the intro is over: will-change comes off and the deferred work may start.
   let ledeDone; const ledeP = new Promise((r) => { ledeDone = r; });
-  Promise.race([ledeP, new Promise((r) => setTimeout(r, 8000))]).then(() => {
+  Promise.race([ledeP, go.then(() => new Promise((r) => setTimeout(r, 8000)))]).then(() => {
     mark('button');
-    const a = cta.firstElementChild, cr = cta.getBoundingClientRect(), ar = a.getBoundingClientRect();
-    cta.style.transformOrigin = `${(ar.left - cr.left + ar.width / 2).toFixed(1)}px 50%`;
     cta.classList.add('on');
-    animate(cta, { opacity: [0, 1] }, { duration: 0.22, ease: 'linear' });
-    animate(cta, { scale: [0.85, 1] }, { duration: 0.5, ease }).finished.then(() => mark('buttonIn'), () => {});
+    return move(cta, 'scale(0.001)', 'scale(1)', 0.55, 0, EASE, 1);
+  }).then(() => {
+    mark('buttonIn');
+    document.documentElement.classList.remove('intro-run');
+    if (window.__introOpen) window.__introOpen();
   });
   // text: words slide up from behind a mask; headings word by word, paragraphs line by line
   const groupOf = (el) => el.closest('.card, .tile, .meter, .head, .close, .hero') || el.parentElement;
@@ -470,8 +525,7 @@ if (!reduce) {
       if (top === null || Math.abs(t - top) > 4) { line++; top = t; }
       // hero subtitle: same masked slide-up, but it starts only after the rainbow letters land (about 60 ms later)
       const d = hero ? 0.06 + line * 0.08 : el._d + line * 0.08 + (head ? wi++ * 0.045 : 0);
-      runs.push(() => hero ? landed(w, { y: ['125%', '0%'] }, { duration: 0.9, delay: d, ease }, (v) => parseFloat(v) <= 4)
-        : animate(w, { y: ['125%', '0%'] }, { duration: 0.9, delay: d, ease }));
+      runs.push(() => hero ? slide(w, d, 0.9) : animate(w, { y: ['125%', '0%'] }, { duration: 0.9, delay: d, ease }));
       last = d;
     });
     // hero: the button waits for the subtitle's last word to finish (errors resolve too)
@@ -668,7 +722,7 @@ const G = {
 };
 // Rapier physics: one shared copy, downloaded the first time a physics scene comes near (technical card or Noise)
 let rapierP = null;
-const rapier = () => rapierP || (rapierP = import('https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs').then(async (m) => { const R = m.default || m; await R.init(); return R; }).catch((err) => { rapierP = null; throw err; }));
+const rapier = () => rapierP || (rapierP = (window.__introDone || Promise.resolve()).then(() => import('https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs').then(async (m) => { const R = m.default || m; await R.init(); return R; })).catch((err) => { rapierP = null; throw err; }));
 // a toon mesh with its outline; w is the outline width in world units, s the uniform scale
 function obj(geo, color, s = 1, w = 0.03) {
   const g = new THREE.Group();
@@ -823,12 +877,17 @@ const builders = {
     [cap, cone].forEach((o) => x.poke(o, { push: 0.35, floor: true, h: 0.3 }));
     const pb = x.poke(b, { push: -0.2, floor: true, h: 0.5, hop: 3.6 });
     x.tap((h, nx, ny) => { if (h === pb) cheer(pb); else if (h) { h.vel.y += 2.6; h.sqv -= 3; } else kick(x.v, nx, ny, 3, 0.9); });
-    let born = -1; // intro: the whole scene grows from 0.7 to full size on its first frames on screen (1.1 s, ease-out, no overshoot)
+    // intro: the whole scene grows from 0.7 to full size (1.1 s, ease-out, no overshoot). It waits at 0.7 until the page says go
+    // (fonts ready, first frame drawn), then runs on its own clock: real frame time, but a stall over 50 ms counts as 50 ms,
+    // so a dropped frame slows it a touch instead of making it jump.
+    let born = -1, ik = 0, lastIT = 0;
     return (t, cam, aspect) => {
       const s = pointer();
       const tt = reduce ? 0 : t;
-      if (born < 0) { born = t; window.__hero3dBorn = performance.now(); }
-      const ik = reduce ? 1 : Math.min(1, (t - born) / 1.1);
+      if (born < 0 && window.__heroGo) { born = t; lastIT = t; window.__hero3dBorn = performance.now(); }
+      if (born >= 0 && ik < 1) ik = Math.min(1, ik + Math.min(0.05, Math.max(0, t - lastIT)) / 1.1);
+      lastIT = t;
+      if (reduce) ik = 1;
       const ie = 1 - Math.pow(1 - ik, 3);
       root.scale.setScalar(0.7 + 0.3 * ie);
       // the hero title waits for this: the 3D leads, the title comes in once the scale-up is 65% of the way in
@@ -1583,7 +1642,7 @@ const builders = {
   }
 };
 
-const views = [...document.querySelectorAll('[data-view]')].map((el) => {
+function makeView(el) {
   const scene = new THREE.Scene(); scene.background = null; stage(scene);
   const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 100); cam.position.z = 10;
   const inp = { active: false, down: false, press: false, nx: 0, ny: 0, grab: null, taps: [] };
@@ -1592,15 +1651,47 @@ const views = [...document.querySelectorAll('[data-view]')].map((el) => {
   v.update = builders[el.dataset.view](scene, cam, ctx);
   attach(v);
   return v;
-});
+}
+// only the hero scene is built at load. The other scenes wait until the hero intro has landed, then build one per idle slot
+// (each one's shaders compiled right away, so scrolling to it later doesn't hitch). A scene that comes near the screen sooner
+// is built at once.
+const views = [];
+const later = [...document.querySelectorAll('[data-view]')].filter((el) => el.dataset.view !== 'hero');
 // a full-view quad that multiplies the view's pixels by its card's opacity, so 3D fades in with its card instead of floating on a blank page
 const veilMat = new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.ZeroFactor, blendDst: THREE.SrcAlphaFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.SrcAlphaFactor });
 const veilScene = new THREE.Scene(); const veil = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), veilMat); veil.frustumCulled = false; veilScene.add(veil);
 const veilCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1); veilCam.position.z = 0.5;
 let lastY = -1;
 const io = new IntersectionObserver((es) => es.forEach((e) => { const v = views.find((x) => x.el === e.target); if (v) v.on = e.isIntersecting; }), { rootMargin: '120px 0px' });
-views.forEach((v) => io.observe(v.el));
+const addView = (el) => {
+  if (views.some((v) => v.el === el)) return null;
+  const v = makeView(el); views.push(v); io.observe(v.el);
+  return v;
+};
+const heroEl = document.querySelector('[data-view="hero"]');
+const heroV = heroEl ? addView(heroEl) : null;
 window.__views = views;
+const near = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { near.unobserve(e.target); addView(e.target); } }), { rootMargin: '25% 0px' });
+later.forEach((el) => near.observe(el));
+(window.__introDone || Promise.resolve()).then(() => {
+  const next = () => {
+    const el = later.shift(); if (!el) return;
+    if (!views.some((v) => v.el === el)) {
+      near.unobserve(el);
+      const v = addView(el);
+      try { renderer.compile(v.scene, v.cam); } catch (e) {}
+    }
+    window.__idle(next, 1000);
+  };
+  window.__idle(next, 1000);
+});
+// warm up: compile the hero's shaders before its first frame (in parallel where the GPU driver allows), so the scale-up
+// never starts with a long shader compile
+if (heroV) {
+  try { await Promise.race([renderer.compileAsync(heroV.scene, heroV.cam), new Promise((r) => setTimeout(r, 3000))]); }
+  catch (e) { try { renderer.compile(heroV.scene, heroV.cam); } catch (e2) {} }
+}
+let heroReady = false;
 
 function size() {
   const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -1687,6 +1778,7 @@ function frame(now) {
       else { veilMat.opacity = o; renderer.autoClear = false; renderer.render(veilScene, veilCam); renderer.autoClear = true; }
     }
     drew = true;
+    if (!heroReady && v === heroV) { heroReady = true; window.__hero3dReady = true; requestAnimationFrame(() => dispatchEvent(new Event('hero3d-ready'))); }
   }
 }
 requestAnimationFrame(frame);
@@ -1860,6 +1952,9 @@ function step(now) {
 }
 
 try {
+  // the 3D logo looks the same as the flat SVG at rest, so it is built after the hero intro has landed, in an idle slot
+  await (window.__introDone || Promise.resolve());
+  await new Promise((r) => (window.__idle ? window.__idle(r, 2000) : setTimeout(r, 0)));
   const THREE = await import('three');
   const { SVGLoader } = await import('three/addons/loaders/SVGLoader.js');
   const gl = document.createElement('canvas');

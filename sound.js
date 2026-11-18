@@ -274,9 +274,12 @@ function mixTo(name, now) {
   if (fx && t < fx.peak - 0.08) { land(name, t, fx.peak, 'fx'); fxNote(`#${fx.n} still rising: lands on ${name}`); return; }
   land(name, t, fxStart(t, from, name), 'fx');
 }
+let musWait = false;
 function music() {
   if (!ctx || muted || document.hidden || ctx.state !== 'running') return;
   if (mus) { musFade(MUSIC, 1.6); return; }
+  // the stems' fetch and decode wait until the hero intro has landed, so they never compete with it on the main thread
+  if (window.__introDone && !window.__introIsDone) { if (!musWait) { musWait = true; window.__introDone.then(() => { musWait = false; music(); }); } return; }
   mus = { gain: ctx.createGain(), duck: ctx.createGain(), lp: ctx.createBiquadFilter(), st: [], amt: [], ready: false };
   mus.lp.type = 'lowpass'; mus.lp.Q.value = 0.5; mus.lp.frequency.value = MIX[scene].lp;
   mus.gain.gain.value = 0; mus.lp.connect(mus.gain); mus.gain.connect(mus.duck); mus.duck.connect(ctx.destination);
