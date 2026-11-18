@@ -42,7 +42,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:28p
 h1,.meter,.band,.chips span{-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 .mark i{will-change:transform}
 .hero{display:grid;grid-template-columns:1fr 1fr;gap:clamp(40px,6vw,88px);align-items:center;padding:clamp(40px,7vw,96px) 0 clamp(96px,11vw,150px);min-height:min(86vh,860px)}
-h1{font-weight:600;font-size:clamp(46px,6vw,80px);line-height:1.02;letter-spacing:-.035em;margin:0 0 28px}
+h1{font-weight:600;font-size:clamp(46px,6vw,80px);line-height:1.02;letter-spacing:-.035em;margin:0 0 clamp(14px,1.4vw,20px)}
 h1 .w{display:inline-block}
 h1 em{font-style:normal;font-weight:700;display:inline-block;font-size:1.06em;letter-spacing:0;padding:0 .04em 0 .02em;white-space:nowrap}
 h1 em b{--f:#ffb8d6;--o:#d9468a;position:relative;display:inline-block;font-weight:700;color:var(--f);-webkit-text-stroke:.1em var(--o);paint-order:stroke fill;margin-left:-.07em;translate:0 var(--y,0);rotate:var(--r,0deg)}
@@ -51,7 +51,7 @@ h1 em b::before{content:attr(data-l);position:absolute;left:0;top:0;z-index:-1;c
 h1 em b::after{content:attr(data-l);position:absolute;left:0;top:0;color:rgba(255,255,255,.85);-webkit-text-stroke:0;text-shadow:none;clip-path:inset(24% 50% 60% 18% round .08em);pointer-events:none}
 h1 em b:nth-child(1){--f:#ffc4de;--o:#ff4f9a;--r:-5deg;--y:.05em}h1 em b:nth-child(2){--f:#ffd9ad;--o:#ff8a1f;--r:4deg;--y:-.06em}h1 em b:nth-child(3){--f:#fff2a6;--o:#f2bd00;--r:-3deg;--y:.04em}h1 em b:nth-child(4){--f:#c6f3ba;--o:#36bb4b;--r:5deg;--y:-.05em}h1 em b:nth-child(5){--f:#c2e4ff;--o:#2d97f2;--r:-4deg;--y:.05em}h1 em b:nth-child(6){--f:#ddcdff;--o:#8a5cf5;--r:4deg;--y:-.04em}
 .lede{font-size:clamp(20px,1.8vw,23px);line-height:1.5;color:var(--muted);max-width:28ch}
-.cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:40px}
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:clamp(20px,2vw,28px)}
 .view{position:relative;width:100%}
 .hero .view{aspect-ratio:1/1;border-radius:48px;background:radial-gradient(circle at 50% 58%,var(--cream) 0,#fff 66%)}
 .band{background:var(--ink);color:#fff;overflow:hidden;white-space:nowrap;padding:22px 0}
