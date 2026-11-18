@@ -1,13 +1,15 @@
-// Sound: tiny UI sounds, all made live with the Web Audio API, plus one small background loop (media/loop.ogg, mp3 fallback).
+// Sound: tiny UI sounds, all made live with the Web Audio API, plus ambient background music in five synced stems
+// (media/bgm-*.ogg, mp3 fallback) that follows the section in view.
 // The page's own idea, applied to sound: every sound has a cost, so each one is short, quiet and warm.
 // - One shared AudioContext. Sound is ON by default; a visitor's own "off" is saved in localStorage.
 // - Browsers block audio until a real gesture, so the context unlocks on the first tap, click or key anywhere,
 //   and that first interaction plays its own sound right away.
 // - Low master volume, a soft limiter, a little random pitch on every sound, throttles and a voice cap so fast repeats never stack.
 // - Muted while the tab is hidden. With reduced motion, the scroll-driven sounds are dropped.
-// - Background loop: a soft girl choir, vocal chops, finger snaps, frame drum, a soft kick, shakers and airy pads, nothing else.
-//   Rendered offline (22.9 s, 84 BPM, 8 bars, seamless). Loaded only after sound unlocks, about -20 dB under the UI sounds,
-//   ducks a little when a UI sound plays, fades with the wave button, pauses with the tab.
+// - Background music: airy pads, a soft girl choir (bed and melody), vocal chops, and a faint pulse of soft kick, frame drum,
+//   rare shakers and snaps, nothing else. Rendered offline as five same-length stems (70 BPM, 18 bars, seamless). Loaded only
+//   after sound unlocks, kept well under the UI sounds, ducks a little when a UI sound plays, fades with the wave button,
+//   pauses with the tab.
 // The toggle is the Shade Verse title-screen sound button (shade-verse src/title/TitleButton.tsx, variant 'quiet'):
 // one thin wave line, a gentle sine drifts when on and eases flat when off, with the same ink press (ink-button.js, kind 'sound').
 import { bindInk } from './ink-button.js';
@@ -20,11 +22,12 @@ try { muted = localStorage.getItem(KEY) === '1'; } catch (_) {}
 // ---------- engine ----------
 const AC = window.AudioContext || window.webkitAudioContext;
 let ctx = null, out = null, noiseBuf = null, voices = 0, gesture = false, gestureT = 0;
-const MASTER = 0.5, MAX_VOICES = 8;
+const MASTER = 0.35, MAX_VOICES = 8;   // UI sounds about 3 dB softer than before
 
 function build() {
   if (ctx || !AC) return;
-  try { ctx = new AC({ latencyHint: 'interactive' }); } catch (_) { try { ctx = new AC(); } catch (e) { ctx = null; return; } }
+  // 24 kHz is plenty here (the UI sounds are low-passed at 6.5 kHz, the music at 12 kHz) and halves the decoded music's memory
+  try { ctx = new AC({ latencyHint: 'interactive', sampleRate: 24000 }); } catch (_) { try { ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { try { ctx = new AC(); } catch (e2) { ctx = null; return; } } }
   const lim = ctx.createDynamicsCompressor();
   lim.threshold.value = -18; lim.knee.value = 12; lim.ratio.value = 6; lim.attack.value = 0.003; lim.release.value = 0.15;
   const warm = ctx.createBiquadFilter(); warm.type = 'lowpass'; warm.frequency.value = 6500; warm.Q.value = 0.4;
@@ -49,36 +52,91 @@ document.addEventListener('visibilitychange', () => {
   else ctx.resume().then(() => { if (!mus) music(); }, () => {});
 });
 
-// ---------- background loop ----------
-const MUSIC = 0.1;                 // about -20 dB, well under the UI sounds
-let mus = null, duckT = 0;
+// ---------- background music: five synced stems that follow the section in view ----------
+// Ambient, 70 BPM, 18 bars (61.7 s), seamless. Stems: airy pads, choir bed, choir melody, vocal chops, soft pulse
+// (kick, frame drum, rare shakers and snaps). All five start on one AudioContext clock at the same time, so they stay
+// locked. An IntersectionObserver picks the section in the middle of the screen, and each stem's volume and one soft
+// low-pass glide there over about 3 s. No scroll handler.
+const MUSIC = 0.043;           // quiet: well under the UI sounds
+const LOOP = 18 * 4 * 60 / 70;
+const STEMS = ['pads', 'choir', 'melody', 'chops', 'pulse'];
+// per section: gain of each stem (1 = the full mix), and the low-pass cutoff in Hz
+const MIX = {
+  hero:   { g: [1, 0.75, 0, 0, 0.2], lp: 2600 },        // pads with a soft choir
+  rule:   { g: [1, 0.9, 0.12, 0.2, 0.35], lp: 3200 },   // 01: one rule for every sense
+  cost:   { g: [1, 0.85, 0, 0.45, 0.55], lp: 3600 },    // 02: two kinds of cost
+  noise:  { g: [0.9, 0.7, 0, 0.85, 0.85], lp: 4200 },   // 03: noise vs intent, a little more chops and pulse
+  budget: { g: [1, 0.85, 1, 0.45, 0.45], lp: 5200 },    // 04: budget, the gentle melodic lift
+  close:  { g: [1, 1, 0.1, 0, 0.1], lp: 3000 },         // spend with intent: back to pads and choir
+  footer: { g: [0.9, 0, 0, 0, 0], lp: 1100 },           // dark footer: pads only, darker, with a soft swell
+};
+let mus = null, duckT = 0, scene = 'hero';
 const musFade = (to, sec) => {
   if (!mus) return;
   const g = mus.gain.gain, t = ctx.currentTime;
   g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(to, t + sec);
 };
+const glide = (p, to, t, tc) => { p.cancelScheduledValues(t); p.setValueAtTime(p.value, t); p.setTargetAtTime(to, t, tc); };
+function mixTo(name, now) {
+  scene = name;
+  if (!mus || !mus.ready) return;
+  const m = MIX[name], t = ctx.currentTime, tc = now ? 0.01 : 0.9;    // 0.9 s time constant: settled in about 3 s
+  mus.st.forEach((g, i) => glide(g.gain, m.g[i], t, tc));
+  glide(mus.lp.frequency, m.lp, t, now ? 0.01 : 1.1);
+  if (name === 'footer' && !now) {                                   // a soft swell as the footer opens
+    const p = mus.st[0].gain; p.cancelScheduledValues(t); p.setValueAtTime(p.value, t);
+    p.setTargetAtTime(1.25, t, 0.8); p.setTargetAtTime(m.g[0], t + 3, 1.6);
+  }
+}
 function music() {
   if (!ctx || muted || document.hidden || ctx.state !== 'running') return;
   if (mus) { musFade(MUSIC, 1.6); return; }
-  mus = { gain: ctx.createGain(), duck: ctx.createGain(), src: null };
-  mus.gain.gain.value = 0; mus.gain.connect(mus.duck); mus.duck.connect(ctx.destination);
+  mus = { gain: ctx.createGain(), duck: ctx.createGain(), lp: ctx.createBiquadFilter(), st: [], ready: false };
+  mus.lp.type = 'lowpass'; mus.lp.Q.value = 0.5; mus.lp.frequency.value = MIX[scene].lp;
+  mus.gain.gain.value = 0; mus.lp.connect(mus.gain); mus.gain.connect(mus.duck); mus.duck.connect(ctx.destination);
   const opus = !!document.createElement('audio').canPlayType('audio/ogg; codecs="opus"');
   const load = (url) => fetch(url).then((r) => { if (!r.ok) throw 0; return r.arrayBuffer(); })
     .then((b) => new Promise((res, rej) => ctx.decodeAudioData(b, res, rej)));
-  (opus ? load('./media/loop.ogg').catch(() => load('./media/loop.mp3')) : load('./media/loop.mp3')).then((buf) => {
-    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-    // loop on exactly the 8 bars (encoders may pad the end)
-    src.loopStart = 0; src.loopEnd = Math.min(8 * 4 * 60 / 84, buf.duration);
-    src.connect(mus.gain); src.start(); mus.src = src;
-    if (!muted) musFade(MUSIC, 2.5);
+  const all = (ext) => Promise.all(STEMS.map((n) => load(`./media/bgm-${n}.${ext}`)));
+  let mp3 = !opus;
+  (opus ? all('ogg').catch(() => { mp3 = true; return all('mp3'); }) : all('mp3')).then((bufs) => {
+    // MP3 decoders may add a little silence at the start; the pads never go silent, so skip to their first sound
+    let off = 0;
+    if (mp3) for (let i = 0, d0 = bufs[0].getChannelData(0), lim = Math.min(d0.length, Math.floor(bufs[0].sampleRate * 0.25)); i < lim; i++) {
+      if (Math.abs(d0[i]) > 1e-4) { off = i / bufs[0].sampleRate; break; }
+    }
+    const end = Math.min(off + LOOP, ...bufs.map((b) => b.duration)), when = ctx.currentTime + 0.12;
+    bufs.forEach((buf, i) => {
+      const g = ctx.createGain(); g.gain.value = MIX[scene].g[i]; g.connect(mus.lp); mus.st.push(g);
+      const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.loopStart = off; src.loopEnd = end;
+      src.connect(g); src.start(when, off);
+    });
+    mus.ready = true; mixTo(scene, true);
+    if (!muted) musFade(MUSIC, 3);
   }).catch(() => { mus = null; });
 }
-// a UI sound dips the loop a little, then lets it back up
+// a UI sound dips the music a little, then lets it back up
 function duck() {
-  if (!mus || !mus.src || muted) return;
+  if (!mus || !mus.ready || muted) return;
   const t = ctx.currentTime; if (t - duckT < 0.1) return; duckT = t;
   const g = mus.duck.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t);
-  g.linearRampToValueAtTime(0.6, t + 0.04); g.setTargetAtTime(1, t + 0.14, 0.25);
+  g.linearRampToValueAtTime(0.7, t + 0.05); g.setTargetAtTime(1, t + 0.15, 0.3);
+}
+// which section is in the middle of the screen (a thin band at the center; no scroll handler).
+// The dark footer sits at the very bottom, so it counts once a third of it is open.
+if (window.IntersectionObserver) {
+  const secs = [...document.querySelectorAll('section')];
+  const map = [[document.querySelector('.hero'), 'hero'], [secs[0], 'rule'], [secs[1], 'cost'], [secs[2], 'noise'],
+    [secs[3], 'budget'], [document.querySelector('.close'), 'close']].filter(([el]) => el);
+  const on = new Set(); let foot = false, mid = scene;
+  const pick = () => { const n = foot ? 'footer' : mid; if (n !== scene) mixTo(n); };
+  const o = new IntersectionObserver((es) => {
+    es.forEach((e) => { const n = map.find(([el]) => el === e.target)[1]; e.isIntersecting ? on.add(n) : on.delete(n); });
+    mid = map.map(([, n]) => n).filter((n) => on.has(n)).pop() || mid; pick();
+  }, { rootMargin: '-45% 0px -45% 0px' });
+  map.forEach(([el]) => o.observe(el));
+  const fs = document.querySelector('.foot-space');
+  if (fs) new IntersectionObserver((es) => { foot = es[es.length - 1].intersectionRatio >= 0.33; pick(); }, { threshold: [0, 0.33] }).observe(fs);
 }
 
 // a sound may start when the context runs, or inside the gesture that is unlocking it right now
