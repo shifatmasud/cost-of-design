@@ -631,6 +631,9 @@ const G = {
   iris: new THREE.SphereGeometry(1, 32, 8, 0, Math.PI * 2, 0, 0.5),
   pupil: new THREE.SphereGeometry(1, 24, 6, 0, Math.PI * 2, 0, 0.22)
 };
+// Rapier physics: one shared copy, downloaded the first time a physics scene comes near (technical card or Noise)
+let rapierP = null;
+const rapier = () => rapierP || (rapierP = import('https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs').then(async (m) => { const R = m.default || m; await R.init(); return R; }).catch((err) => { rapierP = null; throw err; }));
 // a toon mesh with its outline; w is the outline width in world units, s the uniform scale
 function obj(geo, color, s = 1, w = 0.03) {
   const g = new THREE.Group();
@@ -899,7 +902,7 @@ const builders = {
     let asked = false;
     const load = async () => {
       if (asked) return; asked = true;
-      try { const m = await import('https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs'); R = m.default || m; await R.init(); build(); }
+      try { R = await rapier(); build(); }
       catch (err) { console.warn('cubes: physics off', err); still(); }
     };
     const near = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { near.disconnect(); load(); } }, { rootMargin: '600px 0px' });
@@ -1139,35 +1142,331 @@ const builders = {
       cam.position.set(0, 0.6, 10);
     };
   },
+  // Noise: a loose cloud of toon shapes floating in an invisible box, with real collisions (Rapier, shared with the technical card).
+  // They drift, bump and bounce off each other, the walls and the lost cube (moved by hand, so it is never knocked around).
+  // Scroll and pointer movement push them like the technical cubes; a tap scatters them; any shape can be grabbed, dragged and thrown.
+  // All 18 shapes draw as 6 instanced toon meshes + 6 instanced outlines (12 draws, was 36).
   noise(scene, cam, x) {
+    const v = x.v, el = v.el, inp = x.inp;
     const geos = [G.box, G.sphere, G.torus, G.capsule, G.cone, G.knot];
     const cols = [C.yellow, C.teal, C.green, C.coral, C.lilac, C.peach, C.pink, C.white];
     let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    const objs = [];
     scene.position.x = -0.25;
     const b = buddy(0.55, 1.3); b.position.set(0.15, -0.1, 0.3); b.userData.squint = 0.35; scene.add(b);
+    // same layout as before (same random sequence): home spot, size, wobble phase and spin rate per shape
+    const O = [];
     for (let i = 0; i < 18; i++) {
       const s = 0.2 + rnd() * 0.28;
-      const o = obj(geos[i % geos.length], cols[i % cols.length], s);
       let px = (rnd() - 0.5) * 4.0, py = (rnd() - 0.5) * 3.0;
       if (Math.abs(px) < 0.7 && Math.abs(py) < 0.6) px += px < 0 ? -0.8 : 0.8;
-      o.position.set(px, py, (rnd() - 0.5) * 2);
-      o.userData = { x: o.position.x, y: o.position.y, ph: rnd() * 6, r: 0.6 + rnd() * 1.5 };
-      scene.add(o); objs.push(o);
+      const pz = (rnd() - 0.5) * 2;
+      O.push({ g: i % geos.length, c: cols[i % cols.length], s, hx: px, hy: py, hz: pz, ph: rnd() * 6, r: 0.6 + rnd() * 1.5 });
     }
-    // the pile scatters away from a tap and settles back; the lost cube opens its eyes while there is room
-    const P = objs.map((o) => x.poke(o, { push: 0.6, k: 40, c: 6 }));
+    // one instanced toon mesh and one instanced outline (sharing its matrices) per shape type
+    const toonI = new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: ramp });
+    const lineI = new THREE.ShaderMaterial({
+      uniforms: { w: { value: 0.03 } }, side: THREE.BackSide, fragmentShader: outlineBase.fragmentShader,
+      vertexShader: 'uniform float w;\nvoid main(){\n vec4 p = vec4(position, 1.0); vec3 n = normal;\n#ifdef USE_INSTANCING\n p = instanceMatrix * p; n = mat3(instanceMatrix) * n;\n#endif\n gl_Position = projectionMatrix * modelViewMatrix * vec4(p.xyz + normalize(n) * w, 1.0);\n}'
+    });
+    const col = new THREE.Color();
+    const groups = geos.map((geo, gi) => {
+      const ids = O.map((o, i) => (o.g === gi ? i : -1)).filter((i) => i >= 0);
+      const m = new THREE.InstancedMesh(geo, toonI, ids.length), l = new THREE.InstancedMesh(geo, lineI, ids.length);
+      l.instanceMatrix = m.instanceMatrix;
+      ids.forEach((id, k) => { m.setColorAt(k, col.setHex(O[id].c)); O[id].m = m; O[id].k = k; });
+      m.userData.ids = ids;
+      [m, l].forEach((q) => { q.frustumCulled = false; scene.add(q); });
+      return m;
+    });
+    const mark = new THREE.Object3D(); scene.add(mark);   // nudged when the shapes move, so the loop knows to draw again
+    const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _e = new THREE.Euler();
+    const _h = new THREE.Vector3(), _o = new THREE.Vector3(), _d = new THREE.Vector3(), _k = new THREE.Vector3(), _iq = new THREE.Quaternion();
+    const _cr = new THREE.Vector3(), _cu = new THREE.Vector3();
+    const put = (o, px, py, pz, q) => o.m.setMatrixAt(o.k, _m.compose(_p.set(px, py, pz), q, _s.setScalar(o.s)));
+    const flush = () => { for (const m of groups) { m.instanceMatrix.needsUpdate = true; m.boundingSphere = null; } mark.position.x = (mark.position.x + 1) % 1000; };
+    // the old jittery float, used until physics is ready (or if it fails to load)
+    const wobble = (tt) => { for (const o of O) put(o, o.hx + Math.sin(tt * 5 + o.ph) * 0.05, o.hy + Math.cos(tt * 6 + o.ph) * 0.06, o.hz, _q.setFromEuler(_e.set(tt * o.r, tt * o.r * 1.3, 0))); flush(); };
+
+    // ---- physics ----
+    // invisible box (scene space): just big enough for every shape at its home spot
+    const ext = [0.75, 1, 1.1, 0.95, 0.95, 1.1];
+    const BX = Math.max(...O.map((o) => Math.abs(o.hx) + ext[o.g] * o.s)) + 0.15;
+    const BY = Math.max(...O.map((o) => Math.abs(o.hy) + ext[o.g] * o.s)) + 0.15;
+    const BZ = Math.max(...O.map((o) => Math.abs(o.hz) + ext[o.g] * o.s)) + 0.15;
+    const RM = reduce ? 0.3 : 1, STEP = 1 / 60, MAXV = 6, MAXW = 14;
+    const B = [];
+    let R = null, world = null, kin = null, acc = 0, lastGrab = 0, lastTT = 0;
+    const shape = (o) => {
+      const s = o.s;
+      if (o.g === 0) return R.ColliderDesc.roundCuboid(0.3 * s, 0.3 * s, 0.3 * s, 0.2 * s);   // rounded box 1, corner 0.2
+      if (o.g === 1) return R.ColliderDesc.ball(s);
+      if (o.g === 3) return R.ColliderDesc.capsule(0.5 * s, 0.45 * s);
+      if (o.g === 4) return R.ColliderDesc.cone(0.7 * s, 0.8 * s);
+      // torus and knot: a convex hull of the mesh itself
+      const a = geos[o.g].attributes.position.array, f = new Float32Array(a.length);
+      for (let j = 0; j < a.length; j++) f[j] = a[j] * s;
+      return R.ColliderDesc.convexHull(f) || R.ColliderDesc.ball(0.9 * s);
+    };
+    const build = () => {
+      world = new R.World({ x: 0, y: 0, z: 0 });   // no gravity: the noise floats
+      const T = 0.5, wall = (hx, hy, hz, px, py, pz) => world.createCollider(R.ColliderDesc.cuboid(hx, hy, hz).setTranslation(px, py, pz).setRestitution(0.7).setFriction(0.1));
+      wall(T, BY + T, BZ + T, -BX - T, 0, 0); wall(T, BY + T, BZ + T, BX + T, 0, 0);
+      wall(BX + T, T, BZ + T, 0, -BY - T, 0); wall(BX + T, T, BZ + T, 0, BY + T, 0);
+      wall(BX + T, BY + T, T, 0, 0, -BZ - T); wall(BX + T, BY + T, T, 0, 0, BZ + T);
+      // the lost cube: kinematic, so shapes bounce off it and it never gets knocked around
+      const bh = 0.275, br = 0.11;
+      kin = world.createRigidBody(R.RigidBodyDesc.kinematicPositionBased().setTranslation(b.position.x, b.position.y, b.position.z));
+      world.createCollider(R.ColliderDesc.roundCuboid(bh - br, bh - br, bh - br, br).setRestitution(0.6).setFriction(0.2), kin);
+      const tt = lastTT;
+      O.forEach((o) => {
+        _q.setFromEuler(_e.set(tt * o.r, tt * o.r * 1.3, 0));
+        const bd = world.createRigidBody(R.RigidBodyDesc.dynamic()
+          .setTranslation(o.hx + Math.sin(tt * 5 + o.ph) * 0.05, o.hy + Math.cos(tt * 6 + o.ph) * 0.06, o.hz)
+          .setRotation({ x: _q.x, y: _q.y, z: _q.z, w: _q.w })
+          .setLinearDamping(reduce ? 2.5 : 0.5).setAngularDamping(reduce ? 2.5 : 0.08).setCanSleep(true).setCcdEnabled(true));
+        world.createCollider(shape(o).setRestitution(0.6).setFriction(0.3).setDensity(1), bd);
+        if (!reduce) { bd.setAngvel({ x: o.r, y: o.r * 1.3, z: 0 }, true); bd.setLinvel({ x: Math.sin(o.ph) * 0.25, y: Math.cos(o.ph * 1.7) * 0.25, z: 0 }, true); }
+        B.push(bd);
+      });
+    };
+    // Rapier loads only when section 03 comes near (the same shared copy as the technical card)
+    const near = new IntersectionObserver((es) => {
+      if (!es.some((e) => e.isIntersecting)) return;
+      near.disconnect();
+      rapier().then((r) => { R = r; build(); }).catch((err) => console.warn('noise: physics off', err));
+      // for checks: the bodies, and where a shape sits on screen
+      const _sc = new THREE.Vector3();
+      window.__noise = { B, scr: (i) => { const p = B[i].translation(), r = el.getBoundingClientRect(); _sc.set(p.x, p.y, p.z); scene.localToWorld(_sc).project(cam); return [r.left + (_sc.x + 1) / 2 * r.width, r.top + (1 - _sc.y) / 2 * r.height]; }, drag: () => !!drag };
+    }, { rootMargin: '600px 0px' });
+    near.observe(el);
+
+    const clampV = (bd) => {
+      const l = bd.linvel(), m = Math.hypot(l.x, l.y, l.z); if (m > MAXV) { const k = MAXV / m; bd.setLinvel({ x: l.x * k, y: l.y * k, z: l.z * k }, true); }
+      const a = bd.angvel(), w = Math.hypot(a.x, a.y, a.z); if (w > MAXW) { const k = MAXW / w; bd.setAngvel({ x: a.x * k, y: a.y * k, z: a.z * k }, true); }
+    };
+    const addV = (bd, dx, dy, dz) => { const l = bd.linvel(); bd.setLinvel({ x: l.x + dx, y: l.y + dy, z: l.z + dz }, true); };
+    const spin = (bd, sp) => { const w = bd.angvel(); bd.setAngvel({ x: w.x + (Math.random() - 0.5) * sp, y: w.y + (Math.random() - 0.5) * sp, z: w.z + (Math.random() - 0.5) * sp }, true); };
+    // camera right / up / forward, in the scene's own space
+    const axes = () => {
+      _iq.copy(scene.quaternion).invert();
+      _cr.setFromMatrixColumn(cam.matrixWorld, 0).applyQuaternion(_iq);
+      _cu.setFromMatrixColumn(cam.matrixWorld, 1).applyQuaternion(_iq);
+      cam.getWorldDirection(_k); _k.applyQuaternion(_iq);
+    };
+
+    // ---- grab, drag and throw (same feel as the technical cubes) ----
+    const DRAG = { drag: true };
+    const rc = new THREE.Raycaster(), _nd = new THREE.Vector2(), off = new THREE.Vector3(), plane = new THREE.Plane(), tgt = new THREE.Vector3();
+    let drag = null, hov = null, onShape = false;
+    const ndc = (cx, cy) => { const r = el.getBoundingClientRect(); return _nd.set(((cx - r.left) / r.width) * 2 - 1, -(((cy - r.top) / r.height) * 2 - 1)); };
+    const hitAt = (cx, cy) => {
+      if (!world || !B.length) return null;
+      rc.setFromCamera(ndc(cx, cy), cam);
+      const h = rc.intersectObjects(groups, false)[0];
+      if (!h || h.instanceId == null) return null;
+      const i = h.object.userData.ids[h.instanceId];
+      return i == null ? null : { i, point: h.point };
+    };
+    const cursor = (c) => { el.style.cursor = c; document.documentElement.style.cursor = c === 'grabbing' ? 'grabbing' : ''; };
+    const grab = (cx, cy, h, id) => {
+      const bd = B[h.i];
+      scene.updateMatrixWorld();
+      cam.getWorldDirection(_d); plane.setFromNormalAndCoplanarPoint(_d, h.point);
+      const t = bd.translation(); _o.set(t.x, t.y, t.z); scene.localToWorld(_o); off.copy(h.point).sub(_o);
+      tgt.set(t.x, t.y, t.z);
+      drag = { b: bd, s: O[h.i].s, id, cx, cy, sx: cx, sy: cy, t0: performance.now(), hist: [], moved: false };
+      bd.wakeUp();
+      inp.grab = DRAG; lastGrab = performance.now(); cursor('grabbing');
+    };
+    const move = (cx, cy) => { if (!drag) return; drag.cx = cx; drag.cy = cy; if (Math.hypot(cx - drag.sx, cy - drag.sy) > 6) drag.moved = true; };
+    const drop = () => {
+      if (!drag) return;
+      const d = drag, bd = d.b; drag = null;
+      const now = performance.now(), hs = d.hist.filter((e) => now - e.t < 110);
+      if (!d.moved && now - d.t0 < 350) {
+        // a quick tap on a shape: a little pop and a spin
+        axes(); const k = 2.2 * RM; bd.setLinvel({ x: _cu.x * k, y: _cu.y * k, z: _cu.z * k }, true); spin(bd, 7 * RM);
+      } else if (hs.length > 1) {
+        // throw with the release speed, capped
+        const a = hs[0], z = hs[hs.length - 1], k = 1000 / Math.max(16, z.t - a.t);
+        _h.set((z.x - a.x) * k, (z.y - a.y) * k, (z.z - a.z) * k);
+        const max = reduce ? 2.5 : 6; if (_h.length() > max) _h.setLength(max);
+        bd.setLinvel({ x: _h.x, y: _h.y, z: _h.z }, true);
+      }
+      inp.grab = null; lastGrab = now; cursor(onShape ? 'grab' : '');
+    };
+    el.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0 || drag) return;
+      const h = hitAt(e.clientX, e.clientY); if (!h) return;
+      e.preventDefault(); grab(e.clientX, e.clientY, h, e.pointerId);
+      try { el.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    el.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && !drag) hov = [e.clientX, e.clientY]; }, { passive: true });
+    el.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !drag) { hov = null; onShape = false; cursor(''); } }, { passive: true });
+    addEventListener('pointermove', (e) => { if (drag && e.pointerId === drag.id) move(e.clientX, e.clientY); }, { passive: true });
+    addEventListener('pointerup', (e) => { if (drag && e.pointerId === drag.id) drop(); }, { passive: true });
+    addEventListener('pointercancel', (e) => { if (drag && e.pointerId === drag.id) drop(); }, { passive: true });
+    addEventListener('selectstart', (e) => { if (drag) e.preventDefault(); });
+    // touch: a drag starts only when the finger lands on a shape; anywhere else the page scrolls as usual
+    el.addEventListener('touchstart', (e) => {
+      if (drag || e.touches.length > 1) return;
+      const t = e.changedTouches[0], h = hitAt(t.clientX, t.clientY); if (!h) return;
+      e.preventDefault(); grab(t.clientX, t.clientY, h, 't' + t.identifier);
+    }, { passive: false });
+    const tfind = (e) => { if (!drag) return null; for (const t of e.changedTouches) if ('t' + t.identifier === drag.id) return t; return null; };
+    el.addEventListener('touchmove', (e) => { const t = tfind(e); if (t) move(t.clientX, t.clientY); }, { passive: true });
+    el.addEventListener('touchend', (e) => { if (tfind(e)) drop(); }, { passive: true });
+    el.addEventListener('touchcancel', (e) => { if (tfind(e)) drop(); }, { passive: true });
+
+    // a tap: the lost cube cheers if it was hit, and the cloud scatters away from the tap
     const pb = x.poke(b, { push: -0.15, hop: 2.4 });
-    x.tap((h, nx, ny) => { if (h === pb) cheer(pb); kick(x.v, nx, ny, 7, 2.5); });
-    return (t, cam) => {
-      const tt = reduce ? 0 : t;
-      objs.forEach((o) => { const u = o.userData; o.position.x = u.x + Math.sin(tt * 5 + u.ph) * 0.05; o.position.y = u.y + Math.cos(tt * 6 + u.ph) * 0.06; o.rotation.x = tt * u.r; o.rotation.y = tt * u.r * 1.3; });
-      let room = 0; P.forEach((p) => { room += p.off.length(); }); room /= P.length;
-      b.userData.squint = 0.35 + Math.min(0.65, room * 2.2);
+    x.tap((h, nx, ny) => {
+      if (h === pb) cheer(pb);
+      if (!world || performance.now() - lastGrab < 600) return;
+      scene.updateMatrixWorld(); axes();
+      const Rr = 2.5;
+      B.forEach((bd, i) => {
+        if (drag && bd === drag.b) return;
+        const p = bd.translation(); _o.set(p.x, p.y, p.z); scene.localToWorld(_o).project(cam);
+        const dx = (_o.x - nx) * v.aspect, dy = _o.y - ny, d = Math.hypot(dx, dy) || 1e-4;
+        if (d > Rr) return;
+        const f = (1 - d / Rr) * 4.5 * RM;
+        addV(bd, (_cr.x * dx / d + _cu.x * dy / d) * f, (_cr.y * dx / d + _cu.y * dy / d) * f, (_cr.z * dx / d + _cu.z * dy / d) * f + (Math.random() - 0.5) * f * 0.4);
+        spin(bd, 6 * RM); clampV(bd);
+      });
+    });
+
+    // ---- scroll and pointer movement (same curves as the technical cubes, no gravity) ----
+    const L0 = () => window.__lenis;
+    const sPos = () => { const l = L0(); return l && l.isScrolling === 'smooth' && Number.isFinite(l.animatedScroll) ? l.animatedScroll : scrollY; };
+    let sPrev = sPos(), sT = performance.now(), sVel = 0, sSlow = 0, stillT = 1, pn = -1, pcx = -1, pcy = -1;
+    const jit = O.map((_, i) => 0.75 + ((i * 0.618) % 1) * 0.5);
+    // every frame while scrolling. Strength follows sqrt(speed) with no dead zone: tiny scrolls nudge and wobble the shapes,
+    // a fast flick throws them across the box. Scroll down pushes them up (and a little away), scroll up pushes them down.
+    const scrollForce = (sv, jerk, k60, el2) => {
+      const a = Math.abs(sv); if (a < 3) { stillT += el2; return; }
+      const c = Math.sqrt(Math.min(a, 4000) / 4000);
+      const start = stillT > 0.3; stillT = 0;                        // a scroll begins after a rest: every shape gets a little nudge
+      const kick = Math.min(1.2, 0.006 * Math.sqrt(Math.max(0, jerk))) + (start ? 0.35 : 0);
+      const dir = sv > 0 ? 1 : -1, up = (0.015 + 0.06 * c) * k60, fwd = (0.006 + 0.025 * c) * k60;
+      axes();
+      for (let i = 0; i < B.length; i++) {
+        const bd = B[i]; if (drag && bd === drag.b) continue;
+        const j = jit[i], u = (up + kick * 0.6) * j * dir, f = (fwd + kick * 0.2) * j * dir, sd = (Math.random() - 0.5) * (fwd * 0.8 + kick * 0.3);
+        addV(bd, _cu.x * u + _k.x * f + _cr.x * sd, _cu.y * u + _k.y * f + _cr.y * sd, _cu.z * u + _k.z * f + _cr.z * sd);
+        spin(bd, ((0.8 + 1.6 * c) * k60 + kick * 3) * j);
+        clampV(bd);
+      }
+    };
+
+    return (t, cam, aspect, dt = 1 / 60) => {
+      const tt = reduce ? 0 : t; lastTT = tt;
       b.rotation.set(Math.sin(tt * 3) * 0.08, 0.2 + Math.sin(tt * 2.3) * 0.1, Math.sin(tt * 4) * 0.06);
       const sn = S(); scene.rotation.y = sn.px * 0.3; scene.rotation.x = sn.py * 0.12;
-      blink(b, t, ...look(x, 1.6, 1.4, Math.sin(tt * 3), Math.cos(tt * 2.6)));
       cam.position.set(0, 0, 9);
+      scene.updateMatrixWorld();
+      if (drag) { inp.press = false; inp.grab = DRAG; }
+      let room = 0;
+      if (!world) wobble(tt);
+      else {
+        // scroll speed from real elapsed time (not the clamped frame dt), so slow phone frames don't misread it
+        if (!reduce) {
+          const nowS = performance.now(), ys = sPos(), el2 = (nowS - sT) / 1000;
+          if (el2 > 0.2) { sVel = 0; sSlow = 0; }
+          else if (el2 > 0.0005) {
+            const raw = (ys - sPrev) / el2, ab0 = sSlow;
+            sVel += (raw - sVel) * (1 - Math.exp(-el2 / 0.06));
+            sSlow += (Math.abs(sVel) - sSlow) * (1 - Math.exp(-el2 / 0.15));
+            scrollForce(sVel, (sSlow - ab0) / el2, Math.min(2, el2 * 60), el2);
+          }
+          sPrev = ys; sT = nowS;
+        }
+        // pointer or finger moving anywhere: a gentle wind its way, stronger near and over the card
+        const P = window.__ptr;
+        if (P && P.n !== pn) {
+          pn = P.n;
+          if (!drag && pcx >= 0 && P.cx >= 0) {
+            const dx = P.cx - pcx, dy = P.cy - pcy, len = Math.hypot(dx, dy), speed = len / dt;
+            if (len > 0.5) {
+              const r = v.r || el.getBoundingClientRect();
+              const ox = Math.max(r.left - P.cx, 0, P.cx - r.right), oy = Math.max(r.top - P.cy, 0, P.cy - r.bottom), d = Math.hypot(ox, oy);
+              const f = d === 0 ? 1 : Math.max(0.15, 0.6 * (1 - d / 400));
+              const mag = Math.min(0.12, Math.min(speed, 3000) * 0.00004) * f * RM;
+              if (mag > 0.015) {
+                axes();
+                const wx = _cr.x * dx / len - _cu.x * dy / len, wy = _cr.y * dx / len - _cu.y * dy / len, wz = _cr.z * dx / len - _cu.z * dy / len;
+                for (const bd of B) if (!drag || bd !== drag.b) addV(bd, wx * mag, wy * mag, wz * mag);
+              }
+            }
+          }
+          pcx = P.cx; pcy = P.cy;
+        }
+        if (hov && !drag) { onShape = !!hitAt(hov[0], hov[1]); cursor(onShape ? 'grab' : 'default'); hov = null; }
+        // drag target: the pointer on a camera-facing plane at the shape's depth, kept inside the box
+        if (drag) {
+          rc.setFromCamera(ndc(drag.cx, drag.cy), cam);
+          if (rc.ray.intersectPlane(plane, _h)) {
+            scene.worldToLocal(_h.sub(off)); const s = drag.s * 0.6;
+            tgt.set(Math.max(-BX + s, Math.min(BX - s, _h.x)), Math.max(-BY + s, Math.min(BY - s, _h.y)), Math.max(-BZ + s, Math.min(BZ - s, _h.z)));
+          }
+          const now = performance.now(); drag.hist.push({ t: now, x: tgt.x, y: tgt.y, z: tgt.z }); if (drag.hist.length > 8) drag.hist.shift();
+        }
+        // the lost cube's pose (its own float plus your poke) drives its kinematic collider
+        _p.copy(b.position).add(pb.off); _q.setFromEuler(b.rotation);
+        const kt = kin.translation(), kr = kin.rotation();
+        const kMoved = Math.abs(kt.x - _p.x) + Math.abs(kt.y - _p.y) + Math.abs(kt.z - _p.z) + Math.abs(kr.x - _q.x) + Math.abs(kr.y - _q.y) + Math.abs(kr.z - _q.z) > 1e-4;
+        // reduced motion: they rest and sleep. Full motion: a slow wander keeps the noise alive while it is on screen
+        const idle = !drag && !kMoved && B.every((bd) => bd.isSleeping());
+        if (idle) acc = 0;
+        else {
+          acc += dt;
+          let n = 0, hit = 0, hs = 0.45;
+          while (acc >= STEP && n < 2) {
+            if (kMoved) { kin.setNextKinematicTranslation({ x: _p.x, y: _p.y, z: _p.z }); kin.setNextKinematicRotation({ x: _q.x, y: _q.y, z: _q.z, w: _q.w }); }
+            const ts = t + n * STEP;
+            for (let i = 0; i < B.length; i++) {
+              const bd = B[i], o = O[i];
+              if (drag && bd === drag.b) {
+                const p = bd.translation(); _o.set(tgt.x - p.x, tgt.y - p.y, tgt.z - p.z).multiplyScalar(16); if (_o.length() > 10) _o.setLength(10);
+                bd.setLinvel({ x: _o.x, y: _o.y, z: _o.z }, true); const a = bd.angvel(); bd.setAngvel({ x: a.x * 0.85, y: a.y * 0.85, z: a.z * 0.85 }, true);
+                continue;
+              }
+              if (bd.isSleeping()) continue;
+              const p = bd.translation();
+              // a weak pull home keeps the cloud's shape after a shove; the wander keeps it drifting
+              const hk = reduce ? 0.6 : 0.22, wd = reduce ? 0 : 0.12;
+              if (reduce) { const l = bd.linvel(); if (Math.hypot(o.hx - p.x, o.hy - p.y, o.hz - p.z) < 0.03 && Math.hypot(l.x, l.y, l.z) < 0.05) continue; }   // close enough: let it sleep
+              addV(bd,
+                ((o.hx - p.x) * hk + Math.sin(ts * 0.7 + o.ph) * wd) * STEP,
+                ((o.hy - p.y) * hk + Math.cos(ts * 0.9 + o.ph * 1.7) * wd) * STEP,
+                ((o.hz - p.z) * hk + Math.sin(ts * 0.5 + o.ph * 2.3) * wd * 0.6) * STEP);
+              if (!reduce) { const w = bd.angvel(), m = Math.hypot(w.x, w.y, w.z); if (m < o.r * 0.6) { const k = m > 1e-3 ? 1.03 : 0; if (k) bd.setAngvel({ x: w.x * k, y: w.y * k, z: w.z * k }, true); else bd.setAngvel({ x: o.r * 0.6, y: 0, z: 0 }, true); } }
+            }
+            const pre = B.map((bd) => { const l = bd.linvel(); return [l.x, l.y, l.z]; });
+            world.step();
+            // impacts: a sudden change in a shape's speed during the step (read before the speed cap)
+            B.forEach((bd, i) => { if (drag && bd === drag.b) return; const l = bd.linvel(), q = pre[i], dv = Math.hypot(l.x - q[0], l.y - q[1], l.z - q[2]); if (dv > hit) { hit = dv; hs = O[i].s * 1.2; } });
+            if (!reduce) for (const bd of B) if (!drag || bd !== drag.b) clampV(bd);
+            acc -= STEP; n++;
+          }
+          if (n === 2) acc = Math.min(acc, STEP);
+          if (hit > 0.8 && window.__sound && window.__sound.tock) window.__sound.tock(Math.max(1.05, Math.min(hit, 4)), hs);   // soft and capped; the sound engine throttles it
+        }
+        // draw: physics pose plus the old fine jitter (none with reduced motion)
+        if (!reduce || !idle) {
+          for (let i = 0; i < B.length; i++) {
+            const o = O[i], p = B[i].translation(), r = B[i].rotation(), j = reduce || (drag && B[i] === drag.b) ? 0 : 1;
+            put(o, p.x + Math.sin(tt * 5 + o.ph) * 0.05 * j, p.y + Math.cos(tt * 6 + o.ph) * 0.06 * j, p.z, _q.set(r.x, r.y, r.z, r.w));
+            room += Math.hypot(p.x - o.hx, p.y - o.hy, p.z - o.hz);
+          }
+          flush();
+          room = Math.max(0, room / B.length - 0.55);
+          window.__noiseRoom = room;   // for checks
+        } else room = window.__noiseRoom || 0;
+      }
+      // the lost cube opens its eyes while the noise gives it room
+      b.userData.squint = 0.35 + Math.min(0.65, (room + pb.off.length()) * 2.2);
+      blink(b, t, ...look(x, 1.6, 1.4, Math.sin(tt * 3), Math.cos(tt * 2.6)));
     };
   },
   intent(scene, cam, x) {
