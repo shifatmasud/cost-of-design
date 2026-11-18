@@ -117,7 +117,7 @@ footer a{color:inherit}
 .reel .strip i{display:block;height:1em;line-height:1;font-style:normal}
 /* Read the idea: the Shade Verse title-screen Play button (shade-verse src/title: TitleButton.tsx, portfolio/ink.css, title.css .sv-play),
    as a label pill with a thick black ring. inkButton.ts (ink-button.js) drives the flood, roll, magnet, squash and ripple. */
-.pill--ink{position:relative;isolation:isolate;overflow:hidden;height:58px;padding:0 24px 0 28px;gap:12px;font:600 18px/1 var(--font);color:#121315;background:var(--yellow);box-shadow:0 0 0 3.5px #121315,0 8px 30px rgba(18,19,21,.2);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+.pill--ink{position:relative;isolation:isolate;overflow:hidden;height:58px;padding:0 24px 0 28px;gap:12px;font:600 18px/1 var(--font);color:#fff;background:#121315;box-shadow:0 0 0 3.5px #121315,0 8px 30px rgba(18,19,21,.2);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
 .pill--ink:focus-visible{outline:2px solid #121315;outline-offset:7px}
 .pill--ink>.sroll{position:relative;z-index:1}
 .pill--ink .sroll{position:relative;display:block;overflow:hidden}
@@ -128,7 +128,7 @@ footer a{color:inherit}
 .pill--ink .arw .ia-a,.pill--ink .arw .ia-b{display:block;position:absolute;inset:0}
 .pill--ink .arw .ia-b{transform:translate3d(-130%,130%,0)}
 .pill--ink .arw svg{display:block;width:100%;height:100%}
-.pill--ink .ink{position:absolute;inset:0;z-index:2;pointer-events:none;visibility:hidden;clip-path:circle(0px at 0px 0px);display:flex;align-items:center;gap:12px;padding:0 24px 0 28px;background:#121315;color:var(--yellow);border-radius:inherit}
+.pill--ink .ink{position:absolute;inset:0;z-index:2;pointer-events:none;visibility:hidden;clip-path:circle(0px at 0px 0px);display:flex;align-items:center;gap:12px;padding:0 24px 0 28px;background:#fff;color:#121315;border-radius:inherit}
 @media (max-width:860px){.hero,.row,.close,.head{grid-template-columns:1fr}.hero{min-height:0;padding-top:24px;gap:48px}.hero .view{max-width:480px;width:100%;justify-self:center}.close .view{max-width:320px;order:-1}.head{gap:16px}.meters{grid-template-columns:1fr}.budget .view{max-width:340px;width:100%}.rule .view{max-width:440px;justify-self:center}}
 @media (max-width:620px){body{font-size:18px}:root{--r:28px;--gap:96px}.grid2{grid-template-columns:1fr}header{padding:20px 0}h1{font-size:clamp(42px,12vw,54px)}.hero .view{border-radius:36px}.band{padding:18px 0}.chips{margin-top:28px}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.js .reveal,.js .m>.mi,.js .pop{opacity:1;transform:none;filter:none}}
