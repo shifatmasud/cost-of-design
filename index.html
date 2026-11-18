@@ -217,7 +217,7 @@ h1,h2,h3,.label,.lede,.intro,.tile p,.meter .name,.meter .note,.say,.close p,.ch
 <div>
 <h1><span class="w">The</span> <span class="w">cost</span><br> <span class="w">of</span> <span class="w"><em class="pop"><b data-l="d">d</b><b data-l="e">e</b><b data-l="s">s</b><b data-l="i">i</b><b data-l="g">g</b><b data-l="n">n</b></em></span></h1>
 <p class="lede">Every element you add has a price. Good design is knowing what to spend it on.</p>
-<div class="cta reveal"><a class="pill pill--ink" href="#rule" data-no-roll><span class="sroll lab ink-par"><span class="ir-a">Read the idea</span></span><span class="ink" aria-hidden="true"><span class="sroll lab ink-par" aria-hidden="true"><span class="ir-a">Read the idea</span></span></span></a></div>
+<div class="cta"><a class="pill pill--ink" href="#rule" data-no-roll><span class="sroll lab ink-par"><span class="ir-a">Read the idea</span></span><span class="ink" aria-hidden="true"><span class="sroll lab ink-par" aria-hidden="true"><span class="ir-a">Read the idea</span></span></span></a></div>
 </div>
 <div class="view" data-view="hero"></div>
 </div>
@@ -413,13 +413,16 @@ if (!reduce) {
   const HERO = { dur: 1.2, gap: 0.12, start: 0.15 };
   animate('h1 .m > .mi', { y: ['125%', '0%'] }, { duration: HERO.dur, delay: stagger(HERO.gap, { startDelay: HERO.start }), ease });
   // rainbow words: each letter only scales in, one after another (no blur, no fade, no overshoot)
-  const popIn = (em, delay) => {
-    [...em.querySelectorAll('b')].forEach((b, i) => {
-      animate(b, { scale: [0, 1] }, { type: 'spring', visualDuration: 0.8, bounce: 0, delay: delay + i * 0.085 });
-    });
-  };
+  const popIn = (em, delay) => [...em.querySelectorAll('b')].map((b, i) =>
+    animate(b, { scale: [0, 1] }, { type: 'spring', visualDuration: 0.8, bounce: 0, delay: delay + i * 0.085 }).finished
+  );
   // hero: "The cost of" slides up first (last word starts at 0.39s), then "design" grows in
-  popIn(document.querySelector('h1 .pop'), HERO.start + 2 * HERO.gap + 0.75);
+  // heroDone resolves when the last rainbow letter has really landed (Motion's finished promise), so the subtitle waits for it even on slow phones.
+  // A stopped animation or a hidden tab can never leave the subtitle hidden: errors resolve too, and a 6 s safety net is the last resort.
+  const heroDone = Promise.race([
+    Promise.all(popIn(document.querySelector('h1 .pop'), HERO.start + 2 * HERO.gap + 0.75)).catch(() => {}),
+    new Promise((r) => setTimeout(r, 6000))
+  ]);
   // text: words slide up from behind a mask; headings word by word, paragraphs line by line
   const groupOf = (el) => el.closest('.card, .tile, .meter, .head, .close, .hero') || el.parentElement;
   const order = new Map();
@@ -429,13 +432,16 @@ if (!reduce) {
     const head = /^H[1-6]$/.test(el.tagName);
     const hero = !!el.closest('.hero'); // hero intro: slower, softer, wider gaps
     let line = -1, top = null, wi = 0, last = null;
+    const runs = [];
     words.forEach((w) => {
       const t = w.parentElement.offsetTop;
       if (top === null || Math.abs(t - top) > 4) { line++; top = t; }
-      const d = hero ? 0.35 + line * 0.12 : el._d + line * 0.08 + (head ? wi++ * 0.045 : 0);
-      animate(w, { y: ['125%', '0%'] }, { duration: hero ? 1.15 : 0.9, delay: d, ease });
+      // hero subtitle: same masked slide-up, but it starts only after the rainbow letters land (about 60 ms later)
+      const d = hero ? 0.06 + line * 0.12 : el._d + line * 0.08 + (head ? wi++ * 0.045 : 0);
+      runs.push(() => animate(w, { y: ['125%', '0%'] }, { duration: hero ? 1.15 : 0.9, delay: d, ease }));
       last = d;
     });
+    if (hero) heroDone.then(() => runs.forEach((f) => f())); else runs.forEach((f) => f());
     // a rainbow word in this title starts once the plain words have slid up
     const pop = el.querySelector('.pop');
     if (pop) popIn(pop, last === null ? el._d + 0.15 : last + 0.7);
@@ -779,9 +785,13 @@ const builders = {
     [cap, cone].forEach((o) => x.poke(o, { push: 0.35, floor: true, h: 0.3 }));
     const pb = x.poke(b, { push: -0.2, floor: true, h: 0.5, hop: 3.6 });
     x.tap((h, nx, ny) => { if (h === pb) cheer(pb); else if (h) { h.vel.y += 2.6; h.sqv -= 3; } else kick(x.v, nx, ny, 3, 0.9); });
+    let born = -1; // intro: the whole scene grows from 0.7 to full size on its first frames on screen (1.1 s, ease-out, no overshoot)
     return (t, cam, aspect) => {
       const s = pointer();
       const tt = reduce ? 0 : t;
+      if (born < 0) born = t;
+      const ik = reduce ? 1 : Math.min(1, (t - born) / 1.1);
+      root.scale.setScalar(0.7 + 0.3 * (1 - Math.pow(1 - ik, 3)));
       sph.position.y = 1.25 + Math.sin(tt * 0.7) * 0.14;
       tor.position.y = 1.55 + Math.sin(tt * 0.6 + 2) * 0.12; tor.rotation.set(0.6 + tt * 0.25, tt * 0.35, 0);
       const a = tt * 0.55; moon.position.set(Math.cos(a) * 1.15, 0.85 + Math.sin(tt * 1.1) * 0.08, Math.sin(a) * 1.15);
