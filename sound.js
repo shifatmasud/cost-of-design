@@ -7,10 +7,12 @@
 // - Low master volume, a soft limiter, a little random pitch on every sound, throttles and a voice cap so fast repeats never stack.
 // - Muted while the tab is hidden. With reduced motion, the scroll-driven sounds are dropped.
 // - Background music: airy pads, a soft girl choir (bed and melody), vocal chops, a calm, hypnotic drum groove in two stems,
-//   one bar repeated exactly (kick: soft, short, dry, on 1 and 3, only in the drop, section 03; perc: soft snaps on 2 and 4,
-//   a steady breathing 16th shaker and a muted low wood 3-3-2 ostinato, in a small room) and a warm reese bass, the rest far
-//   back in a long dark hall, highs rolled off. Mix order on a speaker: drums, bass, chops, choir, pads (quietest). Rendered
-//   offline as seven same-length stems (70 BPM, 18 bars, seamless). The kick gently pumps the bass, pads and choir.
+//   a slow, sleepy half-time groove on its own 8-bar loop (kick: soft, short, dry, only in the drop, section 03, a 4-bar loop:
+//   bars 1 and 3 even on every beat, bars 2 and 4 sparse and swung; perc: one soft snap on 3, a lazy shaker and a muted low
+//   wood 3-3-2, in a small room; a short soft snap fill closes every 8th bar) and a warm reese bass, the rest far back in a
+//   long dark hall, highs rolled off. Mix order on a speaker: drums, bass, chops, choir, pads (quietest). Rendered offline
+//   (70 BPM, seamless): five music stems of 18 bars and two drum stems of 8 bars on the same bar grid. The kick gently pumps
+//   the bass, pads and choir.
 //   Each section change plays one soft, dark noise rise and fall; the new layers come in on its way down. Loaded only
 //   after sound unlocks, kept well under the UI sounds, ducks a little when a UI sound plays, fades with the wave button,
 //   pauses with the tab.
@@ -63,18 +65,21 @@ document.addEventListener('visibilitychange', () => {
 
 // ---------- background music: seven synced stems that follow the section in view ----------
 // Ambient, 70 BPM, 18 bars (61.7 s), seamless. Stems: airy pads and choir in a long dark hall, choir melody, vocal chops
-// (every other 2 bars), kick (soft, on 1 and 3), perc (soft snaps on 2 and 4; a steady 16th shaker on every beat:
-// soft, softer, accent on the 'and', soft pull, very lightly swung; a muted low wood ostinato in 3-3-2 from real CC0
-// wood knocks, very low). One bar that repeats exactly: no fills, no alternating bars, no ghosts (hypnotic). A soft, round
-// reese bass. All seven start
+// (every other 2 bars), and a soft, round reese bass, all 18 bars. Drums (8 bars, 27.4 s, half-time and sleepy, laid
+// back 20 ms with a lazy swing on the 'ands'): kick in a 4-bar loop (bars 1 and 3: soft and even on every beat; bars 2 and
+// 4: 1, the 'and' of 2, the 'and' of 3); perc: one soft snap on beat 3, a lazy shaker (soft pull on the beat, slow push on
+// the 'and'), a muted low wood 3-3-2 from real CC0 wood knocks (bar 4 of each 4 plays only its first knock), and a short
+// soft snap fill (beat 4, 'and', 'a') at the end of bar 8, the only variation. 8 bars don't divide 18, so the drum stems
+// loop on their own 8 bars; both loops are whole bars at 70 BPM, so they stay on the same beat grid. All seven start
 // on one AudioContext clock at the same time, so they stay locked. An IntersectionObserver picks the section in the middle
 // of the screen. Section change: a soft noise rise plays first while the old mix stays; its peak lands on the beat, and
 // there the stems and the low-pass glide to the new section (about 1.3 s) while the noise falls. No scroll handler.
-// Sidechain pump: a duck curve made once from the kick hit times (below) loops in sync with the stems and dips the bass,
+// Sidechain pump: a duck curve made once from the kick hit times (below) loops in sync with the kick stem (8 bars) and dips the bass,
 // pads and choir on each kick hit. Its depth moves with the kick stem, so it only pumps in the drop (03).
 // No per-frame work: after the start it all runs inside the audio engine.
 const MUSIC = 0.043;           // quiet: well under the UI sounds
-const LOOP = 18 * 4 * 60 / 70;
+const LOOP = 18 * 4 * 60 / 70;                     // music stems: 18 bars
+const DLOOP = 8 * 4 * 60 / 70;                     // drum stems (kick, perc) and the pump: 8 bars
 const STEMS = ['pads', 'choir', 'melody', 'chops', 'kick', 'perc', 'bass'];
 const KI = 4;                                       // index of the kick stem
 const BEAT = 60 / 70;
@@ -113,15 +118,15 @@ const MIX = {
 // sidechain: stem index -> duck depth at pump 1 (very gentle, half the old depth: about -2.2 dB bass, -1.3 dB pads,
 // -0.4 dB choir at the deepest)
 const PUMP = { 6: 0.225, 0: 0.14, 1: 0.05 };
-// kick hits in the loop: [time s, weight] (from the same render as bgm-kick: 1 and 3, every bar the same)
-const HITS = [[1.714,0.9],[3.428,0.9],[5.142,0.9],[6.857,0.9],[8.572,0.9],[10.286,0.9],[12.0,0.9],[13.714,0.9],[15.43,0.9],[17.143,0.9],[18.857,0.9],[20.571,0.9],[22.285,0.9],[23.999,0.9],[25.715,0.9],[27.428,0.9],[29.142,0.9],[30.857,0.9],[32.572,0.9],[34.285,0.9],[35.999,0.9],[37.714,0.9],[39.429,0.9],[41.143,0.9],[42.857,0.9],[44.572,0.9],[46.286,0.9],[48.0,0.9],[49.714,0.9],[51.428,0.9],[53.143,0.9],[54.857,0.9],[56.571,0.9],[58.286,0.9],[59.999,0.9],[61.713,0.9]];
+// kick hits in the 8-bar drum loop: [time s, weight] (from the same render as bgm-kick)
+const HITS = [[0.857,0.55],[1.714,0.75],[2.57,0.55],[3.428,0.9],[4.765,0.55],[5.622,0.65],[6.858,0.9],[7.714,0.55],[8.571,0.75],[9.429,0.55],[10.286,0.9],[11.623,0.55],[12.48,0.65],[13.714,0.9],[14.572,0.55],[15.427,0.75],[16.286,0.55],[17.143,0.9],[18.481,0.55],[19.338,0.65],[20.572,0.9],[21.429,0.55],[22.286,0.75],[23.142,0.55],[23.999,0.9],[25.337,0.55],[26.194,0.65],[27.428,0.9]];
 function pumpBuffer() {
   // a small mono curve at a low rate (3 kHz is plenty for a gain curve): 0 at rest, down to -1 on a full hit.
   // Each hit dips in 30 ms and lets go over about 2/3 of a beat (time constant 0.2 s at 70 BPM).
   let sr = 3000, b;
-  try { b = ctx.createBuffer(1, Math.round(LOOP * sr), sr); } catch (_) { sr = 22050; b = ctx.createBuffer(1, Math.round(LOOP * sr), sr); }
+  try { b = ctx.createBuffer(1, Math.round(DLOOP * sr), sr); } catch (_) { sr = 22050; b = ctx.createBuffer(1, Math.round(DLOOP * sr), sr); }
   const d = b.getChannelData(0), n = d.length;
-  for (const [t0, w] of HITS) for (const sh of [-LOOP, 0, LOOP]) {
+  for (const [t0, w] of HITS) for (const sh of [-DLOOP, 0, DLOOP]) {
     const a = Math.max(0, Math.ceil((t0 + sh - 0.03) * sr)), z = Math.min(n, Math.floor((t0 + sh + 1.6) * sr));
     for (let i = a; i < z; i++) {
       const dt = i / sr - (t0 + sh), e = w * (dt < 0 ? (dt + 0.03) / 0.03 : Math.exp(-dt / 0.2));
@@ -309,8 +314,9 @@ function music() {
     if (mp3) for (let i = 0, d0 = bufs[0].getChannelData(0), lim = Math.min(d0.length, Math.floor(bufs[0].sampleRate * 0.25)); i < lim; i++) {
       if (Math.abs(d0[i]) > 1e-4) { off = i / bufs[0].sampleRate; break; }
     }
-    const end = Math.min(off + LOOP, ...bufs.map((b) => b.duration)), when = ctx.currentTime + 0.12;
-    const pump = ctx.createBufferSource(); pump.buffer = pumpBuffer(); pump.loop = true; pump.loopEnd = LOOP;
+    const drum = (i) => i === KI || STEMS[i] === 'perc';
+    const end = Math.min(off + LOOP, ...bufs.filter((b, i) => !drum(i)).map((b) => b.duration)), when = ctx.currentTime + 0.12;
+    const pump = ctx.createBufferSource(); pump.buffer = pumpBuffer(); pump.loop = true; pump.loopEnd = DLOOP;
     mus.an = [];
     bufs.forEach((buf, i) => {
       const g = ctx.createGain(); g.gain.value = MIX[scene].g[i]; mus.st.push(g);
@@ -321,7 +327,7 @@ function music() {
         g.connect(mus.lp);
         g.inp = pg;
       } else { g.connect(mus.lp); g.inp = g; }
-      const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.loopStart = off; src.loopEnd = end;
+      const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.loopStart = off; src.loopEnd = drum(i) ? Math.min(off + DLOOP, buf.duration) : end;
       src.connect(voice(STEMS[i], g.inp)); src.start(when, off);
       if (DEBUG) { const a = ctx.createAnalyser(); a.fftSize = 512; g.connect(a); mus.an.push(a); }
       dbg.stems[i].st = 'playing';
