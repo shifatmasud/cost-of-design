@@ -154,6 +154,9 @@ footer .dim{color:rgba(245,243,239,.62)}
 .m>.mi{display:inline-block}
 .js .m>.mi{transform:translateY(125%)}
 .js .pop b{transform:scale(0)}
+/* hero button: hidden but keeps its space until the intro shows it last (not clickable or focusable till then) */
+.js .hero .cta{opacity:0;visibility:hidden}
+.js .hero .cta.on{visibility:visible}
 .odo{display:inline-flex}
 .reel{position:relative;display:inline-block}
 .reel>.sz{visibility:hidden}
@@ -177,7 +180,7 @@ footer .dim{color:rgba(245,243,239,.62)}
 @media (max-width:860px){.close h2{font-size:clamp(30px,calc((100vw - 44px) / 8.1),48px)}}
 @media (max-width:860px){.hero,.row,.close,.head{grid-template-columns:1fr}.hero{min-height:0;padding-top:24px;gap:48px}.hero .view{max-width:480px;width:100%;justify-self:center}.close .view{max-width:320px;order:-1}.head{gap:16px}.meters{grid-template-columns:1fr}.budget .view{max-width:340px;width:100%}.rule .view{max-width:440px;justify-self:center}}
 @media (max-width:620px){body{font-size:16px}:root{--r:28px;--gap:96px}.grid2{grid-template-columns:1fr}header{padding:20px 0}h1{font-size:clamp(42px,12vw,54px)}.band{padding:18px 0}.chips{margin-top:28px}}
-@media (prefers-reduced-motion:reduce){.js .reveal,.js .m>.mi,.js .pop b{opacity:1;transform:none;filter:none}}
+@media (prefers-reduced-motion:reduce){.js .reveal,.js .m>.mi,.js .pop b,.js .hero .cta{opacity:1;transform:none;filter:none;visibility:visible}}
 /* text balance: short text balances its lines, longer paragraphs use pretty, so no line ends with a lone word.
    Set on the parent block; split words stay inline. Locked lines (.ln, .pop, .foot-name) keep their own nowrap. */
 p{text-wrap:pretty}
@@ -409,20 +412,49 @@ const meters = [...document.querySelectorAll('.meter')].map((m) => {
 });
 
 if (!reduce) {
-  // hero title: words slide up from their masks, slow and soft
-  const HERO = { dur: 1.2, gap: 0.12, start: 0.15 };
-  animate('h1 .m > .mi', { y: ['125%', '0%'] }, { duration: HERO.dur, delay: stagger(HERO.gap, { startDelay: HERO.start }), ease });
-  // rainbow words: each letter only scales in, one after another (no blur, no fade, no overshoot)
+  // hero intro, in order of the visual hierarchy, each step chained on a real end signal (each has a backup timer):
+  // 1. the 3D scene scales up (Three.js, scene-inline). 2. The title starts when the 3D is 65% of the way in ('hero3d-lead').
+  // 3. The subtitle slides up when the last rainbow letter has landed. 4. The button scales in when the subtitle's last word has landed.
+  const T = (window.__heroIntro = { t0: performance.now() });
+  const mark = (k) => { T[k] = Math.round(performance.now() - T.t0); };
+  const HERO = { dur: 1.2, gap: 0.12, start: 0.05, pop: 0.3 };
+  const heroView = document.querySelector('[data-view="hero"]');
+  const heroOff = () => { const r = heroView.getBoundingClientRect(); return r.bottom < 0 || r.top > innerHeight; };
+  // the 3D leads; if WebGL is slow, off screen or missing, the title goes anyway (at once when the hero is scrolled away, else after 1.5 s)
+  const lead = new Promise((r) => {
+    if (window.__hero3dLead) return r();
+    addEventListener('hero3d-lead', () => r(), { once: true });
+    setTimeout(r, heroOff() ? 0 : 1500);
+  });
+  // a step counts as done when its animation has visibly landed (Motion's onUpdate passes the mark), not after the spring's
+  // long invisible tail; its finished promise (or an error) also counts, so nothing can hang.
+  const landed = (el, kf, opt, ok) => new Promise((done) => {
+    animate(el, kf, { ...opt, onUpdate: (v) => { if (ok(v)) done(); } }).finished.then(done, done);
+  });
+  // rainbow words: each letter only scales in, one after another (no blur, no fade, no overshoot). Landed = 97% of full size.
   const popIn = (em, delay) => [...em.querySelectorAll('b')].map((b, i) =>
-    animate(b, { scale: [0, 1] }, { type: 'spring', visualDuration: 0.8, bounce: 0, delay: delay + i * 0.085 }).finished
+    landed(b, { scale: [0, 1] }, { type: 'spring', visualDuration: 0.8, bounce: 0, delay: delay + i * 0.085 }, (v) => v >= 0.97)
   );
-  // hero: "The cost of" slides up first (last word starts at 0.39s), then "design" grows in
-  // heroDone resolves when the last rainbow letter has really landed (Motion's finished promise), so the subtitle waits for it even on slow phones.
-  // A stopped animation or a hidden tab can never leave the subtitle hidden: errors resolve too, and a 6 s safety net is the last resort.
-  const heroDone = Promise.race([
-    Promise.all(popIn(document.querySelector('h1 .pop'), HERO.start + 2 * HERO.gap + 0.75)).catch(() => {}),
-    new Promise((r) => setTimeout(r, 6000))
-  ]);
+  // title: "The cost of" slides up, then "design" grows in. titleDone = the last rainbow letter has landed (Motion's finished promise).
+  // A stopped animation or a hidden tab can never leave the rest hidden: errors resolve too, and a 6 s safety net is the last resort.
+  const titleDone = lead.then(() => {
+    mark('title');
+    animate('h1 .m > .mi', { y: ['125%', '0%'] }, { duration: HERO.dur, delay: stagger(HERO.gap, { startDelay: HERO.start }), ease });
+    return Promise.all(popIn(document.querySelector('h1 .pop'), HERO.start + 2 * HERO.gap + HERO.pop)).catch(() => {});
+  });
+  const heroDone = Promise.race([titleDone, new Promise((r) => setTimeout(r, 6000))]).then(() => mark('letters'));
+  // button: shows last, after the subtitle. It scales up from its own centre (0.85 -> 1) on its wrapper, so the button's own magnet,
+  // squash and ink transforms never fight it. Opacity fades in over the first part. Safety: it shows by 8 s no matter what.
+  const cta = document.querySelector('.hero .cta');
+  let ledeDone; const ledeP = new Promise((r) => { ledeDone = r; });
+  Promise.race([ledeP, new Promise((r) => setTimeout(r, 8000))]).then(() => {
+    mark('button');
+    const a = cta.firstElementChild, cr = cta.getBoundingClientRect(), ar = a.getBoundingClientRect();
+    cta.style.transformOrigin = `${(ar.left - cr.left + ar.width / 2).toFixed(1)}px 50%`;
+    cta.classList.add('on');
+    animate(cta, { opacity: [0, 1] }, { duration: 0.22, ease: 'linear' });
+    animate(cta, { scale: [0.85, 1] }, { duration: 0.5, ease }).finished.then(() => mark('buttonIn'), () => {});
+  });
   // text: words slide up from behind a mask; headings word by word, paragraphs line by line
   const groupOf = (el) => el.closest('.card, .tile, .meter, .head, .close, .hero') || el.parentElement;
   const order = new Map();
@@ -437,11 +469,14 @@ if (!reduce) {
       const t = w.parentElement.offsetTop;
       if (top === null || Math.abs(t - top) > 4) { line++; top = t; }
       // hero subtitle: same masked slide-up, but it starts only after the rainbow letters land (about 60 ms later)
-      const d = hero ? 0.06 + line * 0.12 : el._d + line * 0.08 + (head ? wi++ * 0.045 : 0);
-      runs.push(() => animate(w, { y: ['125%', '0%'] }, { duration: hero ? 1.15 : 0.9, delay: d, ease }));
+      const d = hero ? 0.06 + line * 0.08 : el._d + line * 0.08 + (head ? wi++ * 0.045 : 0);
+      runs.push(() => hero ? landed(w, { y: ['125%', '0%'] }, { duration: 0.9, delay: d, ease }, (v) => parseFloat(v) <= 4)
+        : animate(w, { y: ['125%', '0%'] }, { duration: 0.9, delay: d, ease }));
       last = d;
     });
-    if (hero) heroDone.then(() => runs.forEach((f) => f())); else runs.forEach((f) => f());
+    // hero: the button waits for the subtitle's last word to finish (errors resolve too)
+    if (hero) heroDone.then(() => { mark('subtitle'); return Promise.all(runs.map((f) => f())); }).catch(() => {}).then(() => { mark('subtitleDone'); ledeDone(); });
+    else runs.forEach((f) => f());
     // a rainbow word in this title starts once the plain words have slid up
     const pop = el.querySelector('.pop');
     if (pop) popIn(pop, last === null ? el._d + 0.15 : last + 0.7);
@@ -582,7 +617,7 @@ const canvas = document.getElementById('gl');
 const low = (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency || 8) <= 4;
 let renderer;
 try { renderer = new THREE.WebGLRenderer({ canvas, antialias: !low, alpha: true, premultipliedAlpha: true, powerPreference: 'high-performance' }); }
-catch (e) { canvas.remove(); throw e; }
+catch (e) { canvas.remove(); window.__hero3dLead = true; dispatchEvent(new Event('hero3d-lead')); throw e; }
 renderer.setPixelRatio(Math.min(devicePixelRatio, low ? 1.5 : 2));
 renderer.setClearColor(0x000000, 0);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -792,9 +827,12 @@ const builders = {
     return (t, cam, aspect) => {
       const s = pointer();
       const tt = reduce ? 0 : t;
-      if (born < 0) born = t;
+      if (born < 0) { born = t; window.__hero3dBorn = performance.now(); }
       const ik = reduce ? 1 : Math.min(1, (t - born) / 1.1);
-      root.scale.setScalar(0.7 + 0.3 * (1 - Math.pow(1 - ik, 3)));
+      const ie = 1 - Math.pow(1 - ik, 3);
+      root.scale.setScalar(0.7 + 0.3 * ie);
+      // the hero title waits for this: the 3D leads, the title comes in once the scale-up is 65% of the way in
+      if (ie >= 0.65 && !window.__hero3dLead) { window.__hero3dLead = true; if (window.__heroIntro) window.__heroIntro.lead = Math.round(performance.now() - window.__heroIntro.t0); dispatchEvent(new Event('hero3d-lead')); }
       sph.position.y = 1.25 + Math.sin(tt * 0.7) * 0.14;
       tor.position.y = 1.55 + Math.sin(tt * 0.6 + 2) * 0.12; tor.rotation.set(0.6 + tt * 0.25, tt * 0.35, 0);
       const a = tt * 0.55; moon.position.set(Math.cos(a) * 1.15, 0.85 + Math.sin(tt * 1.1) * 0.08, Math.sin(a) * 1.15);
