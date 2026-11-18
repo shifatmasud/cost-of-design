@@ -27,8 +27,9 @@ body{position:relative}
 #gl{position:absolute;left:0;top:0;width:100%;height:100vh;height:100lvh;display:block;will-change:transform}
 .wrap{max-width:1200px;margin:0 auto;padding:0 clamp(22px,4vw,48px)}
 header{display:flex;align-items:center;justify-content:space-between;padding:28px 0}
-.mark{display:flex;align-items:center;gap:12px;font-weight:600;font-size:17px}
-.mark i{width:32px;height:32px;border-radius:50%;background:#121315;display:block;flex:none}
+.mark{display:grid;place-items:center;width:48px;height:48px;margin-left:-11px;border-radius:50%;color:var(--ink);text-decoration:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-drag:none}
+.mark:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.mark i{width:26px;height:26px;display:block;flex:none}
 .mark i svg{width:100%;height:100%;display:block}
 .pill{display:inline-flex;align-items:center;gap:8px;font:600 16px/1 var(--font);color:#fff;background:var(--ink);border:0;border-radius:999px;padding:15px 24px;cursor:pointer;text-decoration:none;-webkit-tap-highlight-color:transparent}
 .pill.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 2px var(--ink)}
@@ -115,7 +116,7 @@ footer a{color:inherit}
 
 <div class="wrap">
 <header>
-<div class="mark"><i><svg xmlns="http://www.w3.org/2000/svg" viewBox="-65 -65 330 330" aria-hidden="true"><path fill="#fafafa" d="M100 0h100L100 100H0zm0 100h100L100 200H0z"/></svg></i>Shifat Masud</div>
+<a class="mark" href="https://shifatmasud-framer.vercel.app/" aria-label="Shifat Masud, portfolio" draggable="false"><i><svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 204 204" aria-hidden="true"><path fill="#121315" stroke="#121315" stroke-width="28" stroke-linejoin="round" d="M105.8 14H166.2L94.2 86H33.8zM105.8 114H166.2L94.2 186H33.8z"/></svg></i></a>
 <button class="icon-btn" id="share" type="button" aria-label="Share this page"><svg class="ic-share" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M176,160a39.89,39.89,0,0,0-28.62,12.09l-46.1-29.63a39.8,39.8,0,0,0,0-28.92l46.1-29.63a40,40,0,1,0-8.66-13.45l-46.1,29.63a40,40,0,1,0,0,55.82l46.1,29.63A40,40,0,1,0,176,160Zm0-128a24,24,0,1,1-24,24A24,24,0,0,1,176,32ZM64,152a24,24,0,1,1,24-24A24,24,0,0,1,64,152Zm112,72a24,24,0,1,1,24-24A24,24,0,0,1,176,224Z"/></svg><svg class="ic-check" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></button><span class="sr" id="share-msg" aria-live="polite"></span>
 </header>
 
@@ -323,11 +324,18 @@ if (!reduce) {
     tap() { letters.forEach((b, i) => bounce(i, i * 0.06, true)); }
   });
 
-  // the round logo in the nav does a happy spin
+  // the logo in the nav does a happy spin
   const mk = document.querySelector('.mark i');
   const spin = () => animate(mk, { rotate: 0, scale: 1 }, { rotate: spring(260, 12, { velocity: 900 }), scale: spring(500, 10, { velocity: -6 }) });
   mk.parentElement.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') spin(); }, { passive: true });
   mk.parentElement.addEventListener('touchstart', spin, { passive: true });
+  // the logo is a link: a tap opens it, a drag does not
+  let mk0 = null;
+  mk.parentElement.addEventListener('pointerdown', (e) => { mk0 = [e.clientX, e.clientY]; }, { passive: true });
+  mk.parentElement.addEventListener('click', (e) => {
+    if (mk0 && e.detail && Math.hypot(e.clientX - mk0[0], e.clientY - mk0[1]) > 8) e.preventDefault();
+    mk0 = null;
+  });
 
   // pull toward the pointer: buttons, pills, chips, cards and tiles
   document.querySelectorAll('.pill, #share').forEach((el) => { magnet(el, 6); press(el); });
