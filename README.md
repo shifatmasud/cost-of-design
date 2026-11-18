@@ -1,4 +1,4 @@
-# The Cognitive Cost of Design
+# The Cost of Design
 
 A one-page idea by Shifat Masud: every element you add has a price, for the machine and for the mind. Good design is knowing what to spend it on.
 

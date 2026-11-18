@@ -3,9 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>The Cognitive Cost of Design</title>
+<title>The Cost of Design</title>
 <meta name="description" content="Every element you add has a price. Good design is knowing what to spend it on. An idea by Shifat Masud.">
-<meta property="og:title" content="The Cognitive Cost of Design">
+<meta property="og:title" content="The Cost of Design">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="The Cost of Design">
 <meta property="og:description" content="Every element you add has a price. Good design is knowing what to spend it on.">
 <meta property="og:type" content="article">
 <meta name="theme-color" content="#ffffff">
@@ -62,19 +64,18 @@ p+p{margin-top:16px}
 .tile h3{font-weight:600;font-size:clamp(26px,2.4vw,32px);letter-spacing:-.02em;line-height:1.1}
 .tile p{opacity:.75;margin-top:8px;font-size:18px;max-width:28ch}
 .budget .view{aspect-ratio:1/1;max-width:460px;justify-self:center}
-.bars{display:grid;gap:30px;margin-top:clamp(48px,6vw,72px);max-width:680px}
-.bar .lab{display:flex;justify-content:space-between;font-weight:600;font-size:15px;margin-bottom:12px}
-.bar .lab .over{color:#b5481a}
-.trk{position:relative;height:36px;border-radius:12px;background:rgba(255,255,255,.8);border:2px solid var(--ink);display:flex;overflow:hidden}
-.trk i{display:block;height:100%;border-right:2px solid var(--ink);transform-origin:left center}
-.pile{margin-right:14%;overflow:visible}
-.pile i{background:var(--soft)}
-.pile i:nth-child(3n+1){background:var(--teal)}.pile i:nth-child(3n+2){background:#fff}.pile i:nth-child(4n){background:var(--yellow)}
-.pile i:last-child{border-radius:0 10px 10px 0;margin-right:-2px;border:2px solid var(--ink);margin-top:-2px;height:calc(100% + 4px)}
-.pile::after{content:"";position:absolute;right:-2px;top:-12px;bottom:-12px;border-right:3px dashed #b5481a}
-.fit .core{background:var(--orange)}
-.fit i:nth-child(2){background:var(--teal)}
-.fit .room{flex:1;border:0;background:repeating-linear-gradient(135deg,transparent 0 8px,rgba(51,43,41,.1) 8px 10px)}
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:clamp(16px,2vw,24px);margin-top:clamp(56px,7vw,88px)}
+.meter{background:rgba(255,255,255,.72);border-radius:28px;padding:clamp(26px,3vw,36px)}
+.meter .top{display:flex;align-items:baseline;justify-content:space-between;gap:16px}
+.meter .name{font-weight:600;font-size:17px}
+.meter .num{font-weight:600;font-size:clamp(44px,5vw,64px);line-height:1;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.meter .num small{font-size:.42em;letter-spacing:0;margin-left:2px;opacity:.6}
+.meter .trk{position:relative;height:12px;border-radius:999px;background:#f2ebe6;margin:22px 0 16px;overflow:hidden}
+.meter .fill{position:absolute;left:0;top:0;bottom:0;border-radius:999px;transform-origin:left center}
+.meter.over .fill{width:100%;background:#e8774a}
+.meter.over .num{color:#b5481a}
+.meter.fit .fill{width:60%;background:var(--orange)}
+.meter .note{font-size:16px;color:var(--muted)}
 .say{font-weight:600;font-size:clamp(24px,2.6vw,32px);line-height:1.25;letter-spacing:-.02em;margin-top:clamp(48px,6vw,72px);max-width:22ch}
 .close{display:grid;grid-template-columns:1.1fr 1fr;align-items:center;gap:clamp(40px,6vw,96px);padding:var(--gap) 0 40px}
 .close .view{aspect-ratio:1/1;max-width:440px;justify-self:center}
@@ -84,7 +85,7 @@ footer{border-top:1px solid var(--line);margin-top:72px;padding:32px 0 48px;disp
 footer a{color:inherit}
 .js .reveal{opacity:0;transform:translateY(24px)}
 .js h1 .w{opacity:0;transform:translateY(20px)}
-@media (max-width:860px){.hero,.row,.close,.head{grid-template-columns:1fr}.hero{min-height:0;padding-top:24px;gap:48px}.hero .view{max-width:480px;width:100%;justify-self:center}.close .view{max-width:320px;order:-1}.head{gap:16px}.budget .view{max-width:340px;width:100%}.rule .view{max-width:440px;justify-self:center}}
+@media (max-width:860px){.hero,.row,.close,.head{grid-template-columns:1fr}.hero{min-height:0;padding-top:24px;gap:48px}.hero .view{max-width:480px;width:100%;justify-self:center}.close .view{max-width:320px;order:-1}.head{gap:16px}.meters{grid-template-columns:1fr}.budget .view{max-width:340px;width:100%}.rule .view{max-width:440px;justify-self:center}}
 @media (max-width:620px){body{font-size:18px}:root{--r:28px;--gap:96px}.grid2{grid-template-columns:1fr}header{padding:20px 0}header .pill{padding:12px 18px;font-size:15px}h1{font-size:clamp(42px,12vw,54px)}h1 br{display:none}.hero .view{border-radius:36px}.band{padding:18px 0}.chips{margin-top:28px}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.js .reveal,.js h1 .w{opacity:1;transform:none}}
 </style>
@@ -102,7 +103,7 @@ footer a{color:inherit}
 <div class="hero">
 <div>
 <span class="tag reveal">A note on design</span>
-<h1><span class="w">The</span> <span class="w"><em>cognitive</em></span><br> <span class="w">cost</span> <span class="w">of</span> <span class="w">design</span></h1>
+<h1><span class="w">The</span> <span class="w"><em>cost</em></span><br> <span class="w">of</span> <span class="w">design</span></h1>
 <p class="lede reveal">Every element you add has a price. Good design is knowing what to spend it on.</p>
 <div class="cta reveal"><a class="pill" href="#rule">Read the idea</a></div>
 </div>
@@ -161,11 +162,9 @@ footer a{color:inherit}
 </div>
 <div class="view" data-view="budget"></div>
 </div>
-<div class="bars" aria-hidden="true">
-<div class="bar"><div class="lab"><span>Piled on</span><span class="over">Over budget</span></div>
-<div class="trk pile"><i style="width:13%"></i><i style="width:9%"></i><i style="width:12%"></i><i style="width:7%"></i><i style="width:11%"></i><i style="width:8%"></i><i style="width:13%"></i><i style="width:6%"></i><i style="width:10%"></i><i style="width:9%"></i><i style="width:16%"></i></div></div>
-<div class="bar"><div class="lab"><span>Budgeted</span><span>Room left</span></div>
-<div class="trk fit"><i class="core" style="width:38%"></i><i style="width:18%"></i><i class="room"></i></div></div>
+<div class="meters" aria-label="Budget compared">
+<div class="meter over reveal"><div class="top"><span class="name">Piled on</span><span class="num" data-to="120">120<small>%</small></span></div><div class="trk"><i class="fill"></i></div><p class="note">Over budget. Nothing has room.</p></div>
+<div class="meter fit reveal"><div class="top"><span class="name">Budgeted</span><span class="num" data-to="60">60<small>%</small></span></div><div class="trk"><i class="fill"></i></div><p class="note">40% left for room to breathe.</p></div>
 </div>
 <p class="say">Detail is not the enemy. Unbudgeted detail is.</p>
 </div>
@@ -176,7 +175,7 @@ footer a{color:inherit}
 <div class="view" data-view="close"></div>
 </div>
 
-<footer><span>An idea by Shifat Masud</span><span>Set in <a href="https://allo.joshpuckett.me">Allo</a> by Josh Puckett</span><span>November 2026</span></footer>
+<footer><span>The Cost of Design. An idea by Shifat Masud</span><span>Set in <a href="https://allo.joshpuckett.me">Allo</a> by Josh Puckett</span><span>November 2026</span></footer>
 </div>
 
 <script type="module">
@@ -205,10 +204,13 @@ if (!reduce) {
   inView('.chips', (el) => {
     animate(el.children, { opacity: [0, 1], y: [12, 0] }, { delay: stagger(0.09, { startDelay: 0.3 }), duration: 0.8, ease });
   });
-  inView('.bars', (el) => {
-    animate(el.querySelectorAll('.pile i'), { scaleX: [0, 1] }, { delay: stagger(0.07, { startDelay: 0.2 }), duration: 0.6, ease });
-    animate(el.querySelectorAll('.fit i:not(.room)'), { scaleX: [0, 1] }, { delay: stagger(0.2, { startDelay: 0.5 }), duration: 1.1, ease });
-  });
+  inView('.meter', (el) => {
+    const fill = el.querySelector('.fill');
+    const num = el.querySelector('.num');
+    const to = +num.dataset.to;
+    animate(fill, { scaleX: [0, 1] }, { duration: 1.6, delay: 0.35, ease });
+    animate(0, to, { duration: 1.6, delay: 0.35, ease, onUpdate: (v) => { num.firstChild.nodeValue = Math.round(v); } });
+  }, { margin: '0px 0px -10% 0px' });
   const track = document.querySelector('.band .track');
   animate(track, { x: ['0%', '-50%'] }, { duration: 48, ease: 'linear', repeat: Infinity });
   hover('.tile', (el) => {
