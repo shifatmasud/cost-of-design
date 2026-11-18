@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OG image source</title>
+<!-- Source for /og.png (1200x630). Rendered by tools/og/render.js with the site's own font, colors, toon ramp and outline shader. -->
+<style>
+@font-face{font-family:"Allo Round";src:url("/fonts/AlloRound.woff2") format("woff2");font-weight:400 700}
+:root{--ink:#332b29;--muted:#6f6461;--teal:#8bdfdd;--yellow:#ffd876}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1200px;height:630px;overflow:hidden;background:#fff}
+body{position:relative;font-family:"Allo Round",system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;font-feature-settings:"ss01"}
+.by{position:absolute;left:72px;top:64px;display:flex;align-items:center;gap:14px;font-size:24px;font-weight:500;color:var(--muted)}
+.by svg{width:30px;height:30px}
+.txt{position:absolute;left:72px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:center;width:560px;padding-top:24px}
+h1{font-weight:600;font-size:96px;line-height:1.0;letter-spacing:-.035em}
+h1 .w{display:inline-block}
+.pop{font-style:normal;isolation:isolate;display:inline-block}
+.pop b{--f:#ffb8d6;--o:#d9468a;position:relative;display:inline-block;font-weight:700;color:var(--f);-webkit-text-stroke:.1em var(--o);paint-order:stroke fill;margin-left:-.01em;translate:0 var(--y,0);rotate:var(--r,0deg)}
+.pop b:first-child{margin-left:0}
+.pop b::before{content:attr(data-l);position:absolute;left:0;top:0;z-index:-1;color:var(--o);-webkit-text-stroke:.16em var(--ink);paint-order:stroke fill}
+.pop b::after{content:attr(data-l);position:absolute;left:0;top:0;color:rgba(255,255,255,.85);-webkit-text-stroke:0;clip-path:inset(24% 50% 60% 18% round .08em)}
+.pop b:nth-child(1){--f:#ffc4de;--o:#ff4f9a;--r:-5deg;--y:.05em}.pop b:nth-child(2){--f:#ffd9ad;--o:#ff8a1f;--r:4deg;--y:-.06em}.pop b:nth-child(3){--f:#fff2a6;--o:#f2bd00;--r:-3deg;--y:.04em}.pop b:nth-child(4){--f:#c6f3ba;--o:#36bb4b;--r:5deg;--y:-.05em}.pop b:nth-child(5){--f:#c2e4ff;--o:#2d97f2;--r:-4deg;--y:.05em}.pop b:nth-child(6){--f:#ddcdff;--o:#8a5cf5;--r:4deg;--y:-.04em}
+.line{margin-top:30px;font-size:34px;line-height:1.18;font-weight:500;color:var(--muted);max-width:15em}
+.tile{position:absolute;left:668px;top:56px;width:476px;height:518px;border-radius:44px;background:var(--teal)}
+#gl{position:absolute;left:600px;top:0;width:600px;height:630px}
+</style>
+</head>
+<body>
+<div class="by"><svg viewBox="-2 -2 204 204" aria-hidden="true"><path fill="#121315" d="M115.66 1.82L166.95 1.82A14 14 0 0 1 176.85 25.72L111.29 91.28A36 36 0 0 1 85.84 101.82L34.55 101.82A14 14 0 0 1 24.65 77.92L90.21 12.36A36 36 0 0 1 115.66 1.82ZM114.16 98.18L165.45 98.18A14 14 0 0 1 175.35 122.08L109.79 187.64A36 36 0 0 1 84.34 198.18L33.05 198.18A14 14 0 0 1 23.15 174.28L88.71 108.72A36 36 0 0 1 114.16 98.18Z"/></svg>An idea by Shifat Masud</div>
+<div class="txt">
+<h1><span class="w">The</span> <span class="w">cost</span><br><span class="w">of</span> <span class="w"><em class="pop"><b data-l="d">d</b><b data-l="e">e</b><b data-l="s">s</b><b data-l="i">i</b><b data-l="g">g</b><b data-l="n">n</b></em></span></h1>
+<p class="line">Every effect has a cost.<br>Your brain pays it.</p>
+</div>
+<div class="tile"></div>
+<canvas id="gl" width="600" height="630"></canvas>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(window.devicePixelRatio || 1);
+renderer.setSize(600, 630, false);
+renderer.setClearColor(0x000000, 0);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+// same palette, toon ramp, outline shader and lights as the site
+const C = { yellow: 0xffd876, teal: 0x8bdfdd, green: 0x8ed993, peach: 0xffc9b8, orange: 0xf8ab41, coral: 0xf2876a, white: 0xfaf7f2, lilac: 0xc3a8ff, pink: 0xff8fc0, ink: 0x332b29 };
+const ramp = new THREE.DataTexture(new Uint8Array([90, 90, 90, 255, 170, 170, 170, 255, 255, 255, 255, 255]), 3, 1, THREE.RGBAFormat);
+ramp.minFilter = ramp.magFilter = THREE.NearestFilter; ramp.generateMipmaps = false; ramp.needsUpdate = true;
+const outlineBase = new THREE.ShaderMaterial({
+  uniforms: { w: { value: 0.035 } },
+  vertexShader: 'uniform float w; void main(){ vec3 p = position + normal * w; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }',
+  fragmentShader: 'void main(){ gl_FragColor = vec4(0.2, 0.169, 0.161, 1.0); }',
+  side: THREE.BackSide
+});
+const mats = {}, outlines = {};
+const toon = (c) => mats[c] || (mats[c] = new THREE.MeshToonMaterial({ color: c, gradientMap: ramp }));
+const outlineFor = (w) => { const k = w.toFixed(3); if (!outlines[k]) { outlines[k] = outlineBase.clone(); outlines[k].uniforms.w.value = w; } return outlines[k]; };
+const decal = (m, f, u) => Object.assign(m, { polygonOffset: true, polygonOffsetFactor: f, polygonOffsetUnits: u });
+const eyeMat = decal(new THREE.MeshBasicMaterial({ color: C.ink }), -1, -4);
+const shadowMat = decal(new THREE.MeshBasicMaterial({ color: C.ink, transparent: true, opacity: 0.1, depthWrite: false }), -1, -4);
+const G = {
+  box: new RoundedBoxGeometry(1, 1, 1, 4, 0.2),
+  sphere: new THREE.SphereGeometry(1, 32, 20),
+  torus: new THREE.TorusGeometry(0.8, 0.3, 16, 40),
+  capsule: new THREE.CapsuleGeometry(0.45, 1, 6, 16),
+  cone: new THREE.ConeGeometry(0.8, 1.4, 32, 1),
+  knot: new THREE.TorusKnotGeometry(0.6, 0.2, 80, 12),
+  small: new RoundedBoxGeometry(2, 0.34, 2, 4, 0.14),
+  eye: new THREE.CapsuleGeometry(0.06, 0.1, 4, 8),
+  disc: new THREE.CircleGeometry(1, 40)
+};
+function obj(geo, color, s = 1, w = 0.03) {
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(geo, toon(color)));
+  g.add(new THREE.Mesh(geo, outlineFor(w / s)));
+  g.scale.setScalar(s);
+  return g;
+}
+function blob(r, y) { const m = new THREE.Mesh(G.disc, shadowMat); m.rotation.x = -Math.PI / 2; m.scale.setScalar(r); m.position.y = y; m.renderOrder = -1; return m; }
+function buddy(size) {
+  const g = obj(G.box, C.orange, size, 0.035);
+  [-0.2, 0.2].forEach((x) => { const e = new THREE.Mesh(G.eye, eyeMat); e.position.set(x, 0.08, 0.508); e.scale.set(1, 1, 0.4); g.add(e); });
+  return g;
+}
+const scene = new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff, 1.3));
+const d = new THREE.DirectionalLight(0xffffff, 2.2); d.position.set(-3, 6, 5); scene.add(d);
+const cam = new THREE.PerspectiveCamera(30, 600 / 630, 0.1, 100);
+cam.position.set(0, 2.2, 11.5); cam.lookAt(0, 0.1, 0);
+
+// Intent: one calm orange cube on a white plinth, with room around it
+const root = new THREE.Group(); root.position.set(0.55, -1.05, 0); root.rotation.y = -0.38; scene.add(root);
+const pl = obj(G.small, C.white, 0.85); pl.position.y = -0.85; root.add(pl);
+root.add(blob(1.15, -1.0));
+const b = buddy(1.0); b.position.y = -0.2; root.add(b);
+
+// Noise: a loose pile of shapes, tumbling in the upper part of the tile
+const P = window.__P || [
+  ['knot',   C.yellow, 0.40, -1.45,  1.55, 0.0,  0.6, 0.4, 0.2],
+  ['sphere', C.coral,  0.27, -0.4,   1.9, -0.6, 0, 0, 0],
+  ['torus',  C.lilac,  0.37,  0.85,  1.6,  0.2,  1.1, 0.5, 0.3],
+  ['cone',   C.green,  0.33,  1.7,   0.85, -0.4, 0.4, 0, 0.6],
+  ['capsule',C.pink,   0.33, -1.75,  0.35, -0.2, 0.3, 0.2, 1.1],
+  ['box',    C.white,  0.42,  0.2,   0.85,  0.3, 0.5, 0.7, 0.2],
+  ['sphere', C.yellow, 0.18, -0.85,  0.7,   0.6, 0, 0, 0],
+  ['knot',   C.peach,  0.27,  1.65,  1.85, -0.8, 1.2, 0.3, 0.9],
+  ['torus',  C.green,  0.25, -0.95,  2.2,  -1.2, 0.2, 1.0, 0.4],
+  ['capsule',C.yellow, 0.25,  1.05,  2.25, -1.4, 0.9, 0.2, 1.9]
+];
+for (const [g, c, s, x, y, z, rx, ry, rz] of P) {
+  const o = obj(G[g], c, s); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); scene.add(o);
+}
+renderer.render(scene, cam);
+document.fonts.ready.then(() => requestAnimationFrame(() => { window.__ready = true; }));
+</script>
+</body>
+</html>
