@@ -1,13 +1,14 @@
-// Sound: tiny UI sounds, all made live with the Web Audio API, plus ambient background music in five synced stems
-// (media/bgm-*.ogg, mp3 fallback) that follows the section in view.
+// Sound: tiny UI sounds, all made live with the Web Audio API, plus distant ambient background music in six synced
+// stems (media/bgm-*.ogg, mp3 fallback) that follows the section in view.
 // The page's own idea, applied to sound: every sound has a cost, so each one is short, quiet and warm.
 // - One shared AudioContext. Sound is ON by default; a visitor's own "off" is saved in localStorage.
 // - Browsers block audio until a real gesture, so the context unlocks on the first tap, click or key anywhere,
 //   and that first interaction plays its own sound right away.
 // - Low master volume, a soft limiter, a little random pitch on every sound, throttles and a voice cap so fast repeats never stack.
 // - Muted while the tab is hidden. With reduced motion, the scroll-driven sounds are dropped.
-// - Background music: airy pads, a soft girl choir (bed and melody), vocal chops, and a faint pulse of soft kick, frame drum,
-//   rare shakers and snaps, nothing else. Rendered offline as five same-length stems (70 BPM, 18 bars, seamless). Loaded only
+// - Background music: airy pads, a soft girl choir (bed and melody), vocal chops, an ambient drum groove (frame drum, finger
+//   snaps, shaker, soft kick) and a warm reese bass, all far back in a long dark hall with the highs rolled off. Rendered
+//   offline as six same-length stems (70 BPM, 18 bars, seamless). The drums gently pump the bass, pads and choir. Loaded only
 //   after sound unlocks, kept well under the UI sounds, ducks a little when a UI sound plays, fades with the wave button,
 //   pauses with the tab.
 // The toggle is the Shade Verse title-screen sound button (shade-verse src/title/TitleButton.tsx, variant 'quiet'):
@@ -22,11 +23,11 @@ try { muted = localStorage.getItem(KEY) === '1'; } catch (_) {}
 // ---------- engine ----------
 const AC = window.AudioContext || window.webkitAudioContext;
 let ctx = null, out = null, noiseBuf = null, voices = 0, gesture = false, gestureT = 0;
-const MASTER = 0.35, MAX_VOICES = 8;   // UI sounds about 3 dB softer than before
+const MASTER = 0.5, MAX_VOICES = 8;    // UI sound level (the music has its own gain)
 
 function build() {
   if (ctx || !AC) return;
-  // 24 kHz is plenty here (the UI sounds are low-passed at 6.5 kHz, the music at 12 kHz) and halves the decoded music's memory
+  // 24 kHz is plenty here (the UI sounds are low-passed at 6.5 kHz, the music is rolled off from about 4 kHz) and halves the decoded music's memory
   try { ctx = new AC({ latencyHint: 'interactive', sampleRate: 24000 }); } catch (_) { try { ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { try { ctx = new AC(); } catch (e2) { ctx = null; return; } } }
   const lim = ctx.createDynamicsCompressor();
   lim.threshold.value = -18; lim.knee.value = 12; lim.ratio.value = 6; lim.attack.value = 0.003; lim.release.value = 0.15;
@@ -53,23 +54,46 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ---------- background music: five synced stems that follow the section in view ----------
-// Ambient, 70 BPM, 18 bars (61.7 s), seamless. Stems: airy pads, choir bed, choir melody, vocal chops, soft pulse
-// (kick, frame drum, rare shakers and snaps). All five start on one AudioContext clock at the same time, so they stay
-// locked. An IntersectionObserver picks the section in the middle of the screen, and each stem's volume and one soft
-// low-pass glide there over about 3 s. No scroll handler.
+// Ambient, 70 BPM, 18 bars (61.7 s), seamless. Stems: airy pads, choir bed, choir melody, vocal chops, ambient drums
+// (frame drum, snaps, shaker, soft kick; the loop has its own groove section in bars 5-11) and a reese bass. All six start
+// on one AudioContext clock at the same time, so they stay locked. An IntersectionObserver picks the section in the middle
+// of the screen, and each stem's volume and one soft low-pass glide there over about 3 s. No scroll handler.
+// Sidechain pump: a duck curve made once from the drum hit times (below) loops in sync with the stems and dips the bass,
+// pads and choir on each kick and frame drum hit. Its depth follows the drum stem's level, so no drums means no pump.
+// No per-frame work: after the start it all runs inside the audio engine.
 const MUSIC = 0.043;           // quiet: well under the UI sounds
 const LOOP = 18 * 4 * 60 / 70;
-const STEMS = ['pads', 'choir', 'melody', 'chops', 'pulse'];
-// per section: gain of each stem (1 = the full mix), and the low-pass cutoff in Hz
+const STEMS = ['pads', 'choir', 'melody', 'chops', 'drums', 'bass'];
+const DR = 4;                                       // index of the drum stem
+// per section: gain of each stem (1 = the full mix; pads, choir, melody, chops, drums, bass), and the low-pass cutoff in Hz
 const MIX = {
-  hero:   { g: [1, 0.75, 0, 0, 0.2], lp: 2600 },        // pads with a soft choir
-  rule:   { g: [1, 0.9, 0.12, 0.2, 0.35], lp: 3200 },   // 01: one rule for every sense
-  cost:   { g: [1, 0.85, 0, 0.45, 0.55], lp: 3600 },    // 02: two kinds of cost
-  noise:  { g: [0.9, 0.7, 0, 0.85, 0.85], lp: 4200 },   // 03: noise vs intent, a little more chops and pulse
-  budget: { g: [1, 0.85, 1, 0.45, 0.45], lp: 5200 },    // 04: budget, the gentle melodic lift
-  close:  { g: [1, 1, 0.1, 0, 0.1], lp: 3000 },         // spend with intent: back to pads and choir
-  footer: { g: [0.9, 0, 0, 0, 0], lp: 1100 },           // dark footer: pads only, darker, with a soft swell
+  hero:   { g: [1, 0.75, 0, 0, 0.2, 0.35], lp: 2000 },      // pads, soft choir; the loop's own groove barely there
+  rule:   { g: [1, 0.85, 0.12, 0.2, 0.3, 0.5], lp: 2300 },  // 01: one rule for every sense
+  cost:   { g: [0.95, 0.6, 0, 0.35, 0.9, 0.75], lp: 2600 }, // 02: two kinds of cost, drum section, choir pulled back
+  noise:  { g: [0.9, 0.5, 0, 0.5, 1, 0.85], lp: 2900 },     // 03: noise vs intent, the fullest drum section
+  budget: { g: [1, 0.8, 1, 0.4, 0.45, 0.65], lp: 3200 },    // 04: budget, the choir melody lift, light drums under it
+  close:  { g: [1, 1, 0.1, 0, 0.1, 0.4], lp: 2200 },        // spend with intent: back to pads and choir
+  footer: { g: [0.9, 0, 0, 0, 0, 0.3], lp: 900 },           // dark footer: pads and a little bass, darker, soft swell
 };
+// sidechain: stem index -> duck depth at drum level 1 (gentle: about -5 dB bass, -3 dB pads, -1 dB choir at the deepest)
+const PUMP = { 5: 0.45, 0: 0.28, 1: 0.1 };
+// drum hits in the loop: [time s, weight] (kick and frame drum doum hits, from the same render as bgm-drums)
+const HITS = [[3.433,0.6],[6.85,0.6],[10.286,0.6],[13.714,0.49],[13.716,0.6],[14.998,0.05],[15.426,0.1],[15.857,0.08],[16.719,0.05],[17.143,0.73],[17.146,0.6],[18.427,0.19],[18.85,0.39],[19.286,0.3],[20.144,0.19],[20.571,0.6],[20.571,0.94],[21.86,0.32],[22.29,0.63],[22.714,0.5],[23.566,0.32],[23.997,0.4],[24.0,1.0],[25.291,0.35],[25.714,0.7],[26.998,0.35],[27.42,0.6],[27.429,1.0],[28.706,0.35],[29.142,0.7],[29.571,0.55],[30.426,0.35],[30.852,0.6],[30.857,1.0],[32.14,0.35],[32.563,0.7],[33.0,0.55],[33.851,0.35],[34.285,0.6],[34.286,1.0],[35.576,0.35],[36.008,0.7],[36.429,0.55],[37.288,0.35],[37.713,0.6],[37.714,0.91],[39.001,0.3],[39.427,0.59],[39.857,0.47],[40.712,0.3],[41.143,0.6],[41.143,0.64],[42.434,0.14],[42.853,0.28],[43.286,0.22],[44.15,0.14],[44.571,0.46],[44.572,0.6],[46.28,0.07],[46.714,0.06],[48.003,0.6],[51.416,0.6],[54.848,0.6],[58.285,0.4],[61.714,0.6]];
+function pumpBuffer() {
+  // a small mono curve at a low rate (3 kHz is plenty for a gain curve): 0 at rest, down to -1 on a full hit.
+  // Each hit dips in 30 ms and lets go over about 2/3 of a beat (time constant 0.2 s at 70 BPM).
+  let sr = 3000, b;
+  try { b = ctx.createBuffer(1, Math.round(LOOP * sr), sr); } catch (_) { sr = 22050; b = ctx.createBuffer(1, Math.round(LOOP * sr), sr); }
+  const d = b.getChannelData(0), n = d.length;
+  for (const [t0, w] of HITS) for (const sh of [-LOOP, 0, LOOP]) {
+    const a = Math.max(0, Math.ceil((t0 + sh - 0.03) * sr)), z = Math.min(n, Math.floor((t0 + sh + 1.6) * sr));
+    for (let i = a; i < z; i++) {
+      const dt = i / sr - (t0 + sh), e = w * (dt < 0 ? (dt + 0.03) / 0.03 : Math.exp(-dt / 0.2));
+      if (-e < d[i]) d[i] = -Math.min(e, 1);
+    }
+  }
+  return b;
+}
 let mus = null, duckT = 0, scene = 'hero';
 const musFade = (to, sec) => {
   if (!mus) return;
@@ -82,6 +106,7 @@ function mixTo(name, now) {
   if (!mus || !mus.ready) return;
   const m = MIX[name], t = ctx.currentTime, tc = now ? 0.01 : 0.9;    // 0.9 s time constant: settled in about 3 s
   mus.st.forEach((g, i) => glide(g.gain, m.g[i], t, tc));
+  mus.amt.forEach(([i, a]) => glide(a.gain, PUMP[i] * m.g[DR], t, tc));   // pump depth follows the drum level
   glide(mus.lp.frequency, m.lp, t, now ? 0.01 : 1.1);
   if (name === 'footer' && !now) {                                   // a soft swell as the footer opens
     const p = mus.st[0].gain; p.cancelScheduledValues(t); p.setValueAtTime(p.value, t);
@@ -91,7 +116,7 @@ function mixTo(name, now) {
 function music() {
   if (!ctx || muted || document.hidden || ctx.state !== 'running') return;
   if (mus) { musFade(MUSIC, 1.6); return; }
-  mus = { gain: ctx.createGain(), duck: ctx.createGain(), lp: ctx.createBiquadFilter(), st: [], ready: false };
+  mus = { gain: ctx.createGain(), duck: ctx.createGain(), lp: ctx.createBiquadFilter(), st: [], amt: [], ready: false };
   mus.lp.type = 'lowpass'; mus.lp.Q.value = 0.5; mus.lp.frequency.value = MIX[scene].lp;
   mus.gain.gain.value = 0; mus.lp.connect(mus.gain); mus.gain.connect(mus.duck); mus.duck.connect(ctx.destination);
   const opus = !!document.createElement('audio').canPlayType('audio/ogg; codecs="opus"');
@@ -106,11 +131,20 @@ function music() {
       if (Math.abs(d0[i]) > 1e-4) { off = i / bufs[0].sampleRate; break; }
     }
     const end = Math.min(off + LOOP, ...bufs.map((b) => b.duration)), when = ctx.currentTime + 0.12;
+    const pump = ctx.createBufferSource(); pump.buffer = pumpBuffer(); pump.loop = true; pump.loopEnd = LOOP;
     bufs.forEach((buf, i) => {
-      const g = ctx.createGain(); g.gain.value = MIX[scene].g[i]; g.connect(mus.lp); mus.st.push(g);
+      const g = ctx.createGain(); g.gain.value = MIX[scene].g[i]; mus.st.push(g);
+      if (PUMP[i]) {                       // stem -> pump gain (1 + depth * curve) -> section gain
+        const pg = ctx.createGain(), amt = ctx.createGain(); pg.gain.value = 1;
+        amt.gain.value = PUMP[i] * MIX[scene].g[DR]; pump.connect(amt); amt.connect(pg.gain); mus.amt.push([i, amt]);
+        pg.connect(g);
+        g.connect(mus.lp);
+        g.inp = pg;
+      } else { g.connect(mus.lp); g.inp = g; }
       const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.loopStart = off; src.loopEnd = end;
-      src.connect(g); src.start(when, off);
+      src.connect(g.inp); src.start(when, off);
     });
+    pump.start(when, 0);
     mus.ready = true; mixTo(scene, true);
     if (!muted) musFade(MUSIC, 3);
   }).catch(() => { mus = null; });
