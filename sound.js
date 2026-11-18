@@ -53,7 +53,7 @@ document.addEventListener('visibilitychange', () => {
   else ctx.resume().then(() => { if (!mus) music(); }, () => {});
 });
 
-// ---------- background music: five synced stems that follow the section in view ----------
+// ---------- background music: six synced stems that follow the section in view ----------
 // Ambient, 70 BPM, 18 bars (61.7 s), seamless. Stems: airy pads, choir bed, choir melody, vocal chops, ambient drums
 // (frame drum, snaps, shaker, soft kick; the loop has its own groove section in bars 5-11) and a reese bass. All six start
 // on one AudioContext clock at the same time, so they stay locked. An IntersectionObserver picks the section in the middle
@@ -65,13 +65,25 @@ const MUSIC = 0.043;           // quiet: well under the UI sounds
 const LOOP = 18 * 4 * 60 / 70;
 const STEMS = ['pads', 'choir', 'melody', 'chops', 'drums', 'bass'];
 const DR = 4;                                       // index of the drum stem
+// Small speakers. A phone or laptop speaker plays almost nothing under about 350 Hz. The drums (kick and frame drum, mostly
+// 80-160 Hz) and the reese bass (low-passed at 520 Hz) live down there, so through a speaker they sat 21-40 dB under the
+// pads and were never heard, and the chops sat 17-26 dB under. Each stem gets a fixed trim and voicing before the section
+// gain, so the same mix carries on a speaker and stays mellow on headphones (measured offline on the stems):
+// - drums: snap and frame-drum slap brought forward with two soft mid peaks, and a little warmth from the kick
+// - bass: soft harmonics (300-1100 Hz) made from its own low end, so the ear hears the bass line on a small speaker
+// - chops: +6 dB
+const VOICE = {
+  chops: { trim: 2 },
+  drums: { trim: 1.7, eq: [[1800, 0.9, 12], [650, 1, 6]], warm: { split: 180, pre: 4, drive: 2, hp: 250, lp: 900, mix: 0.12 } },
+  bass:  { trim: 0.8, warm: { split: 260, pre: 4, drive: 2, hp: 300, lp: 1100, mix: 1 } },
+};
 // per section: gain of each stem (1 = the full mix; pads, choir, melody, chops, drums, bass), and the low-pass cutoff in Hz
 const MIX = {
   hero:   { g: [1, 0.75, 0, 0, 0.2, 0.35], lp: 2000 },      // pads, soft choir; the loop's own groove barely there
-  rule:   { g: [1, 0.85, 0.12, 0.2, 0.3, 0.5], lp: 2300 },  // 01: one rule for every sense
+  rule:   { g: [1, 0.85, 0.12, 0.2, 0.4, 0.5], lp: 2300 },  // 01: one rule for every sense, a hint of drums and bass
   cost:   { g: [0.95, 0.6, 0, 0.35, 0.9, 0.75], lp: 2600 }, // 02: two kinds of cost, drum section, choir pulled back
   noise:  { g: [0.9, 0.5, 0, 0.5, 1, 0.85], lp: 2900 },     // 03: noise vs intent, the fullest drum section
-  budget: { g: [1, 0.8, 1, 0.4, 0.45, 0.65], lp: 3200 },    // 04: budget, the choir melody lift, light drums under it
+  budget: { g: [1, 0.8, 1, 0.4, 0.5, 0.65], lp: 3200 },     // 04: budget, the choir melody lift, light drums under it
   close:  { g: [1, 1, 0.1, 0, 0.1, 0.4], lp: 2200 },        // spend with intent: back to pads and choir
   footer: { g: [0.9, 0, 0, 0, 0, 0.3], lp: 900 },           // dark footer: pads and a little bass, darker, soft swell
 };
@@ -94,6 +106,41 @@ function pumpBuffer() {
   }
   return b;
 }
+// a stem's fixed voicing: src -> trim -> mid peaks -> out, plus src -> low band -> soft clip -> 300 Hz-1 kHz band -> out
+let shapeCurve = null;
+function voice(name, out) {
+  const v = VOICE[name];
+  if (!v) return out;
+  const inp = ctx.createGain(); inp.gain.value = v.trim;
+  let last = inp;
+  (v.eq || []).forEach(([f, q, db]) => {
+    const p = ctx.createBiquadFilter(); p.type = 'peaking'; p.frequency.value = f; p.Q.value = q; p.gain.value = db;
+    last.connect(p); last = p;
+  });
+  last.connect(out);
+  if (v.warm) {
+    const w = v.warm, split = ctx.createBiquadFilter(), pre = ctx.createGain(), sh = ctx.createWaveShaper(),
+      hp = ctx.createBiquadFilter(), lp = ctx.createBiquadFilter(), mix = ctx.createGain(), tap = ctx.createGain();
+    split.type = 'lowpass'; split.frequency.value = w.split; split.Q.value = 0;
+    pre.gain.value = w.pre;
+    if (!shapeCurve || shapeCurve.d !== w.drive) {
+      const n = 1024, c = new Float32Array(n), k = Math.tanh(w.drive);
+      for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; c[i] = Math.tanh(w.drive * x) / k; }
+      shapeCurve = { c, d: w.drive };
+    }
+    sh.curve = shapeCurve.c;
+    hp.type = 'highpass'; hp.frequency.value = w.hp; hp.Q.value = 0;
+    lp.type = 'lowpass'; lp.frequency.value = w.lp; lp.Q.value = 0;
+    mix.gain.value = w.mix * v.trim;
+    tap.connect(split); split.connect(pre); pre.connect(sh); sh.connect(hp); hp.connect(lp); lp.connect(mix); mix.connect(out);
+    tap.connect(inp);
+    return tap;
+  }
+  return inp;
+}
+// ?audiodebug: a small readout of each stem (loaded, decoded, playing, gain, live level), to check on a real phone
+const DEBUG = /[?&]audiodebug\b/.test(location.search);
+const dbg = { stems: STEMS.map((n) => ({ n, st: 'waiting for first tap', kb: 0, dur: 0, ch: 0, ext: '', err: '' })), note: '' };
 let mus = null, duckT = 0, scene = 'hero';
 const musFade = (to, sec) => {
   if (!mus) return;
@@ -120,9 +167,19 @@ function music() {
   mus.lp.type = 'lowpass'; mus.lp.Q.value = 0.5; mus.lp.frequency.value = MIX[scene].lp;
   mus.gain.gain.value = 0; mus.lp.connect(mus.gain); mus.gain.connect(mus.duck); mus.duck.connect(ctx.destination);
   const opus = !!document.createElement('audio').canPlayType('audio/ogg; codecs="opus"');
-  const load = (url) => fetch(url).then((r) => { if (!r.ok) throw 0; return r.arrayBuffer(); })
-    .then((b) => new Promise((res, rej) => ctx.decodeAudioData(b, res, rej)));
-  const all = (ext) => Promise.all(STEMS.map((n) => load(`./media/bgm-${n}.${ext}`)));
+  // fetch all six at once, then decode them one at a time (lower peak memory on a 1 GB phone)
+  let chain = Promise.resolve();
+  const load = (i, ext) => {
+    const d = dbg.stems[i]; d.ext = ext; d.st = 'loading'; d.err = '';
+    const got = fetch(`./media/bgm-${STEMS[i]}.${ext}`).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then((b) => { d.kb = Math.round(b.byteLength / 1024); d.st = 'loaded'; return b; });
+    const dec = chain.then(() => got).then((b) => new Promise((res, rej) => { d.st = 'decoding'; ctx.decodeAudioData(b, res, (e) => rej(e || new Error('decode failed'))); }))
+      .then((buf) => { d.st = 'decoded'; d.dur = buf.duration; d.ch = buf.numberOfChannels; return buf; },
+        (e) => { d.st = 'failed'; d.err = String((e && e.message) || e); throw e; });
+    chain = dec.catch(() => {});
+    return dec;
+  };
+  const all = (ext) => { chain = Promise.resolve(); return Promise.all(STEMS.map((n, i) => load(i, ext))); };
   let mp3 = !opus;
   (opus ? all('ogg').catch(() => { mp3 = true; return all('mp3'); }) : all('mp3')).then((bufs) => {
     // MP3 decoders may add a little silence at the start; the pads never go silent, so skip to their first sound
@@ -132,9 +189,10 @@ function music() {
     }
     const end = Math.min(off + LOOP, ...bufs.map((b) => b.duration)), when = ctx.currentTime + 0.12;
     const pump = ctx.createBufferSource(); pump.buffer = pumpBuffer(); pump.loop = true; pump.loopEnd = LOOP;
+    mus.an = [];
     bufs.forEach((buf, i) => {
       const g = ctx.createGain(); g.gain.value = MIX[scene].g[i]; mus.st.push(g);
-      if (PUMP[i]) {                       // stem -> pump gain (1 + depth * curve) -> section gain
+      if (PUMP[i]) {                       // stem -> voicing -> pump gain (1 + depth * curve) -> section gain
         const pg = ctx.createGain(), amt = ctx.createGain(); pg.gain.value = 1;
         amt.gain.value = PUMP[i] * MIX[scene].g[DR]; pump.connect(amt); amt.connect(pg.gain); mus.amt.push([i, amt]);
         pg.connect(g);
@@ -142,12 +200,41 @@ function music() {
         g.inp = pg;
       } else { g.connect(mus.lp); g.inp = g; }
       const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.loopStart = off; src.loopEnd = end;
-      src.connect(g.inp); src.start(when, off);
+      src.connect(voice(STEMS[i], g.inp)); src.start(when, off);
+      if (DEBUG) { const a = ctx.createAnalyser(); a.fftSize = 512; g.connect(a); mus.an.push(a); }
+      dbg.stems[i].st = 'playing';
     });
     pump.start(when, 0);
+    mus.when = when; mus.mp3 = mp3;
     mus.ready = true; mixTo(scene, true);
     if (!muted) musFade(MUSIC, 3);
-  }).catch(() => { mus = null; });
+  }).catch((e) => { dbg.note = 'music failed: ' + String((e && e.message) || e); mus = null; });
+}
+if (DEBUG) {
+  const box = document.createElement('pre'); box.id = 'audiodebug';
+  box.style.cssText = 'position:fixed;left:6px;bottom:6px;z-index:2147483647;margin:0;padding:8px 10px;max-width:calc(100vw - 12px);' +
+    'background:rgba(18,19,21,.88);color:#f5f3ef;font:11px/1.35 ui-monospace,Menlo,Consolas,monospace;border-radius:8px;pointer-events:none;white-space:pre';
+  document.body.appendChild(box);
+  const buf = new Float32Array(512);
+  const level = (a) => { a.getFloatTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i]; const r = Math.sqrt(s / buf.length); return r > 1e-6 ? (20 * Math.log10(r)).toFixed(0) + ' dB' : 'silent'; };
+  const state = () => ({
+    ctx: ctx ? ctx.state : 'none', sr: ctx ? ctx.sampleRate : 0, muted, scene, ready: !!(mus && mus.ready),
+    music: mus ? +mus.gain.gain.value.toFixed(4) : 0, lp: mus ? Math.round(mus.lp.frequency.value) : 0, codec: mus && mus.ready ? (mus.mp3 ? 'mp3' : 'opus') : '',
+    stems: dbg.stems.map((d, i) => ({ n: d.n, st: d.st, kb: d.kb, dur: +d.dur.toFixed(1), ch: d.ch, err: d.err,
+      gain: mus && mus.ready ? +mus.st[i].gain.value.toFixed(3) : null,
+      pump: mus && mus.ready && PUMP[i] ? mus.amt.find(([j]) => j === i)[1].gain.value.toFixed(2) : null,
+      level: mus && mus.ready && mus.an[i] ? level(mus.an[i]) : '' })),
+    note: dbg.note,
+  });
+  window.__audioState = state;
+  const pad = (s, n) => (String(s) + ' '.repeat(n)).slice(0, n);
+  setInterval(() => {
+    const s = state();
+    const head = `audio ${s.ctx} ${s.sr} Hz ${s.codec}${s.muted ? ' MUTED' : ''}\nsection ${s.scene}  music ${s.music}  lp ${s.lp} Hz\n` +
+      pad('stem', 7) + pad('state', 10) + pad('kb', 5) + pad('gain', 6) + pad('pump', 5) + 'level';
+    const rows = s.stems.map((d) => pad(d.n, 7) + pad(d.st, 10) + pad(d.kb || '', 5) + pad(d.gain == null ? '' : d.gain, 6) + pad(d.pump == null ? '' : d.pump, 5) + d.level + (d.err ? ' ' + d.err : ''));
+    box.textContent = [head, ...rows, s.note].filter(Boolean).join('\n') + (s.ctx === 'none' ? '\ntap anywhere to start sound' : '');
+  }, 250);
 }
 // a UI sound dips the music a little, then lets it back up
 function duck() {
