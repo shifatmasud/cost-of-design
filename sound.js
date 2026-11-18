@@ -6,8 +6,8 @@
 //   and that first interaction plays its own sound right away.
 // - Low master volume, a soft limiter, a little random pitch on every sound, throttles and a voice cap so fast repeats never stack.
 // - Muted while the tab is hidden. With reduced motion, the scroll-driven sounds are dropped.
-// - Background music: airy pads, a soft girl choir (bed and melody), vocal chops, an ambient drum groove (frame drum, finger
-//   snaps, shaker, soft kick; frame drum and kick dry, snaps and shaker in a small room) and a warm reese bass, the rest far
+// - Background music: airy pads, a soft girl choir (bed and melody), vocal chops, a boom-bap drum groove (punchy short
+//   kick, finger snaps as the snare, shaker as the hi-hat; kick dry, snaps and shaker in a small room) and a warm reese bass, the rest far
 //   back in a long dark hall, highs rolled off. Mix order on a speaker: drums, bass, chops, choir, pads (quietest). Rendered
 //   offline as six same-length stems (70 BPM, 18 bars, seamless). The drums gently pump the bass, pads and choir. Loaded only
 //   after sound unlocks, kept well under the UI sounds, ducks a little when a UI sound plays, fades with the wave button,
@@ -56,21 +56,21 @@ document.addEventListener('visibilitychange', () => {
 
 // ---------- background music: six synced stems that follow the section in view ----------
 // Ambient, 70 BPM, 18 bars (61.7 s), seamless. Stems: airy pads, choir bed, choir melody, vocal chops, ambient drums
-// (frame drum, snaps, shaker, soft kick; the loop has its own groove section in bars 5-11) and a reese bass. All six start
+// (punchy short kick, snaps as the snare, shaker as the hi-hat: kick, snap, kick-kick, snap every bar) and a reese bass. All six start
 // on one AudioContext clock at the same time, so they stay locked. An IntersectionObserver picks the section in the middle
 // of the screen, and each stem's volume and one soft low-pass glide there over about 3 s. No scroll handler.
 // Sidechain pump: a duck curve made once from the drum hit times (below) loops in sync with the stems and dips the bass,
-// pads and choir on each kick and frame drum hit. Its depth follows the drum stem's level, so no drums means no pump.
+// pads and choir on each kick hit. Its depth follows the drum stem's level, so no drums means no pump.
 // No per-frame work: after the start it all runs inside the audio engine.
 const MUSIC = 0.043;           // quiet: well under the UI sounds
 const LOOP = 18 * 4 * 60 / 70;
 const STEMS = ['pads', 'choir', 'melody', 'chops', 'drums', 'bass'];
 const DR = 4;                                       // index of the drum stem
-// Small speakers. A phone or laptop speaker plays almost nothing under about 350 Hz. The drums (kick and frame drum, mostly
+// Small speakers. A phone or laptop speaker plays almost nothing under about 350 Hz. The drums (kick body, mostly
 // 80-160 Hz) and the reese bass (low-passed at 520 Hz) live down there, so through a speaker they sat 21-40 dB under the
 // pads and were never heard, and the chops sat 17-26 dB under. Each stem gets a fixed trim and voicing before the section
 // gain, so the same mix carries on a speaker and stays mellow on headphones (measured offline on the stems):
-// - drums: snap and frame-drum slap brought forward with two soft mid peaks, and a little warmth from the kick
+// - drums: snap and kick click brought forward with two soft mid peaks, and a little warmth from the kick body
 // - bass: soft harmonics (300-1100 Hz) made from its own low end, so the ear hears the bass line on a small speaker
 // - chops: +6 dB
 const VOICE = {
@@ -81,8 +81,9 @@ const VOICE = {
 // Mix order, as heard on a phone or laptop speaker (Shifat): drums loudest, then bass, then chops, then choir and choir
 // melody, and the pads quietest, about 3 dB per step wherever the layers play. Done mostly by turning the pads and choir
 // down. The low shelf on the drums and bass keeps headphones from getting boomy, so the total stays within about 3 dB
-// of the old mix on both a speaker and headphones. The drums stem itself is dry: the frame drum and kick have no reverb,
-// the snaps and shaker only a short small room. Nothing here adds reverb or a hall to it.
+// of the old mix on both a speaker and headphones. The drums stem itself is dry: the kick has no reverb (its 2-4 kHz
+// click skips the soft tone cut so it reads on phone speakers), the snaps and shaker only a short small room. Nothing
+// here adds reverb or a hall to it.
 // per section: gain of each stem (pads, choir, melody, chops, drums, bass), the low-pass cutoff in Hz, and p, the drum
 // level that sets the pump depth (the old drum gains, so the pump is the same as before)
 const MIX = {
@@ -96,8 +97,8 @@ const MIX = {
 };
 // sidechain: stem index -> duck depth at drum level 1 (gentle: about -5 dB bass, -3 dB pads, -1 dB choir at the deepest)
 const PUMP = { 5: 0.45, 0: 0.28, 1: 0.1 };
-// drum hits in the loop: [time s, weight] (kick and frame drum doum hits, from the same render as bgm-drums)
-const HITS = [[3.433,0.6],[6.85,0.6],[10.286,0.6],[13.714,0.49],[13.716,0.6],[14.998,0.05],[15.426,0.1],[15.857,0.08],[16.719,0.05],[17.143,0.73],[17.146,0.6],[18.427,0.19],[18.85,0.39],[19.286,0.3],[20.144,0.19],[20.571,0.6],[20.571,0.94],[21.86,0.32],[22.29,0.63],[22.714,0.5],[23.566,0.32],[23.997,0.4],[24.0,1.0],[25.291,0.35],[25.714,0.7],[26.998,0.35],[27.42,0.6],[27.429,1.0],[28.706,0.35],[29.142,0.7],[29.571,0.55],[30.426,0.35],[30.852,0.6],[30.857,1.0],[32.14,0.35],[32.563,0.7],[33.0,0.55],[33.851,0.35],[34.285,0.6],[34.286,1.0],[35.576,0.35],[36.008,0.7],[36.429,0.55],[37.288,0.35],[37.713,0.6],[37.714,0.91],[39.001,0.3],[39.427,0.59],[39.857,0.47],[40.712,0.3],[41.143,0.6],[41.143,0.64],[42.434,0.14],[42.853,0.28],[43.286,0.22],[44.15,0.14],[44.571,0.46],[44.572,0.6],[46.28,0.07],[46.714,0.06],[48.003,0.6],[51.416,0.6],[54.848,0.6],[58.285,0.4],[61.714,0.6]];
+// kick hits in the loop: [time s, weight] (from the same render as bgm-drums: 1, 3, swung and-of-3, a pickup every 8th bar)
+const HITS = [[0.001,0.98],[1.714,0.89],[2.195,0.7],[3.428,0.98],[5.143,0.9],[5.623,0.71],[6.858,0.99],[8.572,0.89],[9.051,0.72],[10.287,1],[12.001,0.87],[12.48,0.71],[13.714,0.98],[15.43,0.9],[15.909,0.72],[17.144,0.96],[18.857,0.89],[19.336,0.73],[20.571,0.98],[22.286,0.85],[22.767,0.7],[24.0,1],[25.712,0.87],[26.194,0.73],[27.05,0.5],[27.426,0.96],[29.142,0.85],[29.622,0.73],[30.857,0.98],[32.572,0.86],[33.05,0.71],[34.284,1],[36.001,0.85],[36.482,0.72],[37.713,1],[39.428,0.87],[39.907,0.7],[41.14,1],[42.857,0.88],[43.337,0.71],[44.57,0.98],[46.286,0.88],[46.764,0.71],[48.001,1],[49.715,0.87],[50.195,0.72],[51.426,1],[53.144,0.91],[53.625,0.74],[54.481,0.5],[54.857,0.97],[56.573,0.9],[57.051,0.7],[58.286,1],[60.002,0.86],[60.48,0.72]];
 function pumpBuffer() {
   // a small mono curve at a low rate (3 kHz is plenty for a gain curve): 0 at rest, down to -1 on a full hit.
   // Each hit dips in 30 ms and lets go over about 2/3 of a beat (time constant 0.2 s at 70 BPM).
