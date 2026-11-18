@@ -44,9 +44,11 @@ function unlock(e) {
   if (ctx && ctx.state !== 'running') { const p = ctx.resume(); if (p && p.then) p.then(music, () => {}); }
   else if (ctx && !mus) music();
   // the knock sounds: fetched once, after the hero intro (about 4 s in), or sooner on the first hit
-  if (ctx && !impBufs && !impLoading && !impT) impT = setTimeout(() => { loadImpacts(); loadTaps(); }, Math.max(0, 4000 - performance.now()));
+  if (ctx && !impBufs && !impLoading && !impT) impT = setTimeout(() => { loadImpacts(); loadTaps(); loadLiquid(); }, Math.max(0, 4000 - performance.now()));
   // the 3D tap sounds: at once when the first tap lands on a 3D scene, so it can be heard
   if (ctx && !tapBufs && e && e.target && e.target.closest && e.target.closest('[data-view]')) loadTaps();
+  // the hero button's liquid sounds: at once when the first tap lands on it
+  if (ctx && !lqBufs && e && e.target && e.target.closest && e.target.closest('.pill--ink')) loadLiquid();
 }
 let impT = 0;
 ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach((t) => document.addEventListener(t, unlock, { capture: true, passive: true }));
@@ -284,6 +286,61 @@ function tap3(kind, { level = 1, rate = 1, x = null, lp = 0 } = {}) {
   if (g >= 0.045) duck();
 }
 
+// ---------- hero button "Read the idea": liquid sounds, real recorded water, no synth ----------
+// Matches the ink: swell as the ink floods in from the pointer (gentle lapping water, quick rise, long fall, about 0.6 s
+// against the 0.85 s flood), drain as it leaves (the same water, lower and darker, easing in and out, about 0.5 s against
+// the 0.65 s drain), press as it squashes and ripples (a soft water drop, pitched down to a warm bloop, its own ripple
+// tail kept), settle as it springs back (one tiny, softer drip). CC0 recordings from Freesound (see media/TAPS.md),
+// low-passed (2.4 kHz swell, 1.7 kHz drain, 3 to 3.6 kHz drops), no reverb, quiet under the music, never ducking it.
+// One small sprite, media/liquid.ogg (Opus, 27 KB) or liquid.mp3, one sound every 0.8 s. Loaded on the first tap on the
+// button, else after the hero intro with the knocks. Each action picks one of 3 variants (never the same twice in a row),
+// with a random +-3% pitch, panned with the pointer.
+const LQ_SLOT = 0.8, LQ_DUR = [0.23, 0.27, 0.38, 0.17, 0.17, 0.132, 0.62, 0.6, 0.62, 0.52, 0.5, 0.52];
+const LQ_SET = { press: [0, 1, 2], settle: [3, 4, 5], swell: [6, 7, 8], drain: [9, 10, 11] };
+const LQ_GAIN = { press: 0.05, settle: 0.03, swell: 0.034, drain: 0.026 };
+// the swell and drain fade in slowly, so cut well before the found onset (never before the slot)
+const LQ_PRE = (i) => (i >= 6 ? 0.06 : 0.002);
+let lqBufs = null, lqLoading = false, lqWant = null;
+const lqLast = {};
+function loadLiquid() {
+  if (lqBufs || lqLoading || !ctx || muted) return;
+  lqLoading = true;
+  const opus = !!document.createElement('audio').canPlayType('audio/ogg; codecs="opus"');
+  const get = (ext) => fetch(`./media/liquid.${ext}`).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+    .then((b) => new Promise((res, rej) => ctx.decodeAudioData(b, res, (e) => rej(e || new Error('decode failed')))));
+  (opus ? get('ogg').catch(() => get('mp3')) : get('mp3')).then((sp) => {
+    const sr = sp.sampleRate, d = sp.getChannelData(0);
+    lqBufs = LQ_DUR.map((dur, i) => {
+      const s0 = Math.floor(i * LQ_SLOT * sr), s1 = Math.min(d.length, Math.floor((i * LQ_SLOT + 0.75) * sr));
+      let pk = 0; for (let j = s0; j < s1; j++) pk = Math.max(pk, Math.abs(d[j]));
+      let on = s0; while (on < s1 && Math.abs(d[on]) < pk * 0.03) on++;
+      on = Math.max(s0, on - Math.floor(LQ_PRE(i) * sr));
+      const n = Math.min(Math.floor((dur + LQ_PRE(i) + 0.006) * sr), d.length - on), b = ctx.createBuffer(1, n, sr);
+      b.getChannelData(0).set(d.subarray(on, on + n));
+      return b;
+    });
+    const w = lqWant; lqWant = null;
+    if (w && performance.now() - w.t < 250) liquid(w.kind, w.o);
+  }, () => { lqLoading = false; lqWant = null; });
+}
+function liquid(kind, { level = 1, x = null } = {}) {
+  if (!ready()) return;
+  // only the press waits for the load (the first tap should be heard); the rest just start it
+  if (!lqBufs) { if (kind === 'press') lqWant = { kind, o: { level, x }, t: performance.now() }; loadLiquid(); return; }
+  const set = LQ_SET[kind]; let vi = set[Math.floor(Math.random() * set.length)];
+  if (vi === lqLast[kind]) vi = set[(set.indexOf(vi) + 1 + Math.floor(Math.random() * (set.length - 1))) % set.length];
+  lqLast[kind] = vi;
+  const s = ctx.createBufferSource(), v = ctx.createGain();
+  s.buffer = lqBufs[vi]; s.playbackRate.value = 1 + (Math.random() * 2 - 1) * 0.03;
+  v.gain.value = LQ_GAIN[kind] * level * (0.92 + Math.random() * 0.16);
+  s.connect(v);
+  if (x != null && ctx.createStereoPanner) {
+    const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, (x / innerWidth) * 2 - 1)) * 0.5;
+    v.connect(p); p.connect(out);
+  } else v.connect(out);
+  s.start(); s.stop(ctx.currentTime + s.buffer.duration / s.playbackRate.value + 0.02);
+}
+
 // pentatonic scale for letters: a soft, always-in-tune run
 const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19];
 const note = (base, i) => base * Math.pow(2, PENTA[i % PENTA.length] / 12);
@@ -297,6 +354,11 @@ const S = {
   thump() { if (!ready() || !gate('thump', 60) || !take(0.16)) return; tone({ f: vary(150), f2: 62, g: 0.32, a: 0.003, dur: 0.14, glide: 0.1 }); air({ f: 700, type: 'lowpass', q: 0.5, g: 0.05, dur: 0.04 }); },
   // tap: a light water-drop ripple
   ripple() { if (!ready() || !gate('ripple', 90) || !take(0.4)) return; const f = vary(520); tone({ f, f2: f * 1.9, g: 0.09, dur: 0.16, glide: 0.06 }); tone({ f: f * 1.5, f2: f * 2.4, g: 0.035, dur: 0.18, at: 0.09, glide: 0.06 }); tone({ f: f * 2, f2: f * 3, g: 0.015, dur: 0.18, at: 0.18, glide: 0.06 }); },
+  // the hero button's liquid sounds (see liquid()): same throttles as the old tick, thump and ripple
+  inkIn(x = null, level = 1) { if (!ready() || !gate('inkIn', 120) || !take(0.6)) return; liquid('swell', { x, level }); },
+  inkOut(x = null, level = 1) { if (!ready() || !gate('inkOut', 120) || !take(0.5)) return; liquid('drain', { x, level }); },
+  plop(x = null) { if (!ready() || !gate('thump', 60) || !take(0.3)) return; liquid('press', { x }); },
+  settle(x = null) { if (!ready() || !gate('ripple', 90) || !take(0.17)) return; liquid('settle', { x }); },
   // sound on: a gentle rising two-note; off: the same falling, quieter
   on() { if (!ctx || !take(0.35)) return; tone({ f: 660, g: 0.09, dur: 0.14 }); tone({ f: 990, g: 0.08, dur: 0.22, at: 0.085 }); },
   off() { if (!ctx || !take(0.3)) return; tone({ f: 740, g: 0.06, dur: 0.12 }); tone({ f: 494, g: 0.05, dur: 0.18, at: 0.08 }); },
@@ -407,14 +469,33 @@ const brushOn = (el, lvl = 1) => {
   el.addEventListener('touchstart', (e) => { const t = e.touches[0]; if (t) { lx = t.clientX; ly = t.clientY; lt = performance.now(); } }, P);
   el.addEventListener('touchmove', (e) => { const t = e.touches[0]; if (t) mv(t.clientX, t.clientY); }, P);
 };
-document.querySelectorAll('.pill, .tile, .card, .chips span, .meter.fit, .band').forEach((el) => brushOn(el, el.classList.contains('band') ? 0.8 : 1));
+document.querySelectorAll('.pill, .chips span, .meter.fit, .band').forEach((el) => brushOn(el, el.classList.contains('band') ? 0.8 : 1));
 
-// "Read the idea": hover tick as the ink starts, low thump on press, ripple on tap, and a soft glide as the page scrolls
+// "Read the idea": liquid, like its ink. Mouse: a swell as the ink floods in, a softer drain as it leaves.
+// Press: a water drop with its ripple tail (on touch the ink floods in too, so a quiet swell under it).
+// Release: one tiny drip as the spring settles; on touch, a soft drain when the ink drains (0.32 s after the press at the
+// earliest, as in ink-button.js). Keys: drop on Enter or Space, drip on release. A soft glide as the page scrolls.
 document.querySelectorAll('.pill--ink').forEach((el) => {
-  hover(el, () => S.tick());
-  el.addEventListener('pointerdown', (e) => { if (e.button === 0) S.thump(); }, { passive: true });
-  el.addEventListener('keydown', (e) => { if (!e.repeat && (e.key === 'Enter' || e.key === ' ')) S.thump(); });
-  el.addEventListener('click', () => { S.ripple(); if (!reduce) setTimeout(() => S.whoosh(0.6, 0.9), 160); });
+  let down = false, downT = 0, touch = false, lx = null;
+  const cx = () => { const r = el.getBoundingClientRect(); return r.left + r.width / 2; };
+  hover(el, (e) => S.inkIn(e.clientX));
+  el.addEventListener('pointerleave', (e) => { if (mouse(e)) S.inkOut(e.clientX); }, P);
+  el.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    down = true; downT = performance.now(); touch = !mouse(e); lx = e.clientX;
+    S.plop(e.clientX); if (touch) S.inkIn(e.clientX, 0.5);
+  }, P);
+  el.addEventListener('pointermove', (e) => { if (down && touch) lx = e.clientX; }, P);
+  const up = (e) => {
+    if (!down) return; down = false;
+    const x = e.type === 'pointercancel' || !e.clientX ? lx : e.clientX;
+    setTimeout(() => S.settle(x), 90);
+    if (touch) setTimeout(() => S.inkOut(x, 0.6), Math.max(120, 320 - (performance.now() - downT)));
+  };
+  addEventListener('pointerup', up, P); addEventListener('pointercancel', up, P);
+  el.addEventListener('keydown', (e) => { if (!e.repeat && (e.key === 'Enter' || e.key === ' ')) S.plop(cx()); });
+  el.addEventListener('keyup', (e) => { if (e.key === 'Enter' || e.key === ' ') setTimeout(() => S.settle(cx()), 90); });
+  el.addEventListener('click', () => { if (!reduce) setTimeout(() => S.whoosh(0.6, 0.9), 160); });
 });
 
 // logos: tick on hover tilt, faint grain while scrubbing, whoosh on the click spin
@@ -476,11 +557,7 @@ document.querySelectorAll('[data-view]').forEach((el) => {
 
 // meters: a tick on hover, and on touch press
 document.querySelectorAll('.meter').forEach((el) => { hover(el, () => S.tick(0.7)); el.addEventListener('pointerdown', (e) => { if (!mouse(e)) S.tick(0.7); }, P); });
-// cards and tiles: a low soft knock as they lift (a tick with reduced motion); the same on touch press
-document.querySelectorAll('.tile, .card').forEach((el) => {
-  const f = () => (reduce ? S.tick(0.7) : S.lift());
-  hover(el, f); el.addEventListener('touchstart', f, P);
-});
+// cards and tiles: no sounds of their own. Every one holds a 3D scene, and its sounds are the card's sounds.
 // chips: tick on hover, thump on press
 document.querySelectorAll('.chips span').forEach((el) => { hover(el, () => S.tick(0.8)); el.addEventListener('pointerdown', () => S.thump(), P); });
 // band: a low brake as it slows under the pointer or finger
