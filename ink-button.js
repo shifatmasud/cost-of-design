@@ -178,11 +178,19 @@ function makeFilter(id) {
 function measure(b) {
   b.w = b.el.offsetWidth;
   b.h = b.el.offsetHeight;
+  b.rr = Math.min(parseFloat(getComputedStyle(b.el).borderTopLeftRadius) || 0, b.w / 2, b.h / 2);
 }
 function screenScale(b, r) {
   return Math.max(1e-3, r.width / ((b.el.offsetWidth || 1) * (b.sx.x || 1)));
 }
 var farR = (b, x, y) => Math.hypot(Math.max(x, b.w - x), Math.max(y, b.h - y)) + 1;
+// smallest circle at (x, y) that covers the button's visible shape (the pill, round ends included)
+var cover = (b, x, y) => {
+  const r = b.rr || 0, xs = [r, b.w - r], ys = [r, b.h - r];
+  let m = 0;
+  for (const cx of xs) for (const cy of ys) m = Math.max(m, Math.hypot(x - cx, y - cy));
+  return m + r + 1;
+};
 function local(b, cx, cy) {
   const r = b.el.getBoundingClientRect(), mx = (r.left + r.right) / 2, my = (r.top + r.bottom) / 2, k = screenScale(b, r);
   return { x: Math.min(b.w, Math.max(0, (cx - mx) / k / (b.sx.x || 1) + b.w / 2)), y: Math.min(b.h, Math.max(0, (cy - my) / k / (b.sy.x || 1) + b.h / 2)) };
@@ -212,8 +220,10 @@ function drain(b, p) {
     kick();
     return;
   }
+  // drain out through the exit point: when the ink fills the button, move its center to p and size it
+  // to still cover the button (no visible jump), then shrink it to zero at p
   let from = { ...b.fl };
-  if (from.r >= farR(b, from.x, from.y) - 1) from = { x: p.x, y: p.y, r: farR(b, p.x, p.y) };
+  if (from.r > 0.25 && from.r >= cover(b, from.x, from.y) - 1) from = { x: p.x, y: p.y, r: cover(b, p.x, p.y) };
   b.flA = { a: from, b: { x: p.x, y: p.y, r: 0 }, t0: now(), d: INK.DRAIN, e: EINOUT };
   kick();
 }
@@ -405,6 +415,51 @@ function bindInk(el, kind) {
   measure(b);
   kick();
   const P = (e) => local(b, e.clientX, e.clientY);
+  // touch / pen: follow the finger after pointerdown. A pointercancel (the browser takes the touch to
+  // scroll) reports clientX/Y as 0,0, so the drain uses the last real touch point instead.
+  b.pid = -1;
+  b.tp = null;
+  b.finger = false;
+  b.waitLift = false;
+  const inside = (r, x, y) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  const exitDrain = (x, y) => {
+    const r = b.el.getBoundingClientRect(), q = b.tp;
+    let ex = x, ey = y;
+    if (q && inside(r, q.x, q.y)) {
+      let lo = 0, hi = 1;
+      for (let i = 0; i < 14; i++) {
+        const t = (lo + hi) / 2;
+        if (inside(r, q.x + (x - q.x) * t, q.y + (y - q.y) * t)) lo = t;
+        else hi = t;
+      }
+      ex = q.x + (x - q.x) * hi;
+      ey = q.y + (y - q.y) * hi;
+    }
+    b.drainAt = 0;
+    b.drainPt = null;
+    b.waitLift = false;
+    drain(b, local(b, ex, ey));
+  };
+  const trackPt = (x, y) => {
+    if (b.pid < 0) return;
+    if (b.on && !inside(b.el.getBoundingClientRect(), x, y)) exitDrain(x, y);
+    b.tp = { x, y };
+  };
+  const tmove = (e) => {
+    if (e.pointerId === b.pid && e.pointerType !== "mouse") trackPt(e.clientX, e.clientY);
+  };
+  const touchMove = (e) => {
+    if (b.finger && e.touches.length) trackPt(e.touches[0].clientX, e.touches[0].clientY);
+  };
+  const touchEnd = (e) => {
+    if (!b.finger || e.touches.length) return;
+    b.finger = false;
+    if (b.waitLift) {
+      b.waitLift = false;
+      b.pid = -1;
+      if (b.on && b.tp) drain(b, local(b, b.tp.x, b.tp.y));
+    }
+  };
   const enter = (e) => {
     if (e.pointerType === "mouse") {
       armMaps();
@@ -425,7 +480,13 @@ function bindInk(el, kind) {
     const p = P(e);
     b.pressT0 = now();
     b.downPt = p;
-    if (e.pointerType !== "mouse") flood(b, p);
+    if (e.pointerType !== "mouse") {
+      b.pid = e.pointerId;
+      b.tp = { x: e.clientX, y: e.clientY };
+      b.finger = e.pointerType === "touch";
+      b.waitLift = false;
+      flood(b, p);
+    }
     press(b, p);
   };
   const up = (e) => {
@@ -434,8 +495,15 @@ function bindInk(el, kind) {
     release(b);
     pressRoll(b);
     if (e.pointerType !== "mouse") {
-      const p = P(e), at = b.pressT0 + INK.TAP_HOLD;
-      if (e.type === "pointercancel" || now() >= at) drain(b, p);
+      const cancel = e.type === "pointercancel";
+      if (cancel && b.finger && "ontouchstart" in window) {
+        b.waitLift = true; // keep following the finger; drain where it leaves the button or lifts
+        return;
+      }
+      b.pid = -1;
+      if (!b.on) return; // already drained where the finger left the button
+      const p = cancel ? b.tp ? local(b, b.tp.x, b.tp.y) : { x: b.w / 2, y: b.h / 2 } : P(e), at = b.pressT0 + INK.TAP_HOLD;
+      if (cancel || now() >= at) drain(b, p);
       else {
         b.drainAt = at;
         b.drainPt = p;
@@ -475,6 +543,10 @@ function bindInk(el, kind) {
   el.addEventListener("pointerdown", down);
   window.addEventListener("pointerup", up);
   window.addEventListener("pointercancel", up);
+  window.addEventListener("pointermove", tmove, { passive: true });
+  window.addEventListener("touchmove", touchMove, { passive: true });
+  window.addEventListener("touchend", touchEnd, { passive: true });
+  window.addEventListener("touchcancel", touchEnd, { passive: true });
   el.addEventListener("focus", focus);
   el.addEventListener("blur", blur);
   el.addEventListener("keydown", kd);
@@ -489,6 +561,10 @@ function bindInk(el, kind) {
     el.removeEventListener("pointerdown", down);
     window.removeEventListener("pointerup", up);
     window.removeEventListener("pointercancel", up);
+    window.removeEventListener("pointermove", tmove);
+    window.removeEventListener("touchmove", touchMove);
+    window.removeEventListener("touchend", touchEnd);
+    window.removeEventListener("touchcancel", touchEnd);
     el.removeEventListener("focus", focus);
     el.removeEventListener("blur", blur);
     el.removeEventListener("keydown", kd);
