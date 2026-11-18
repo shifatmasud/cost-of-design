@@ -31,6 +31,9 @@ header{display:flex;align-items:center;justify-content:space-between;padding:28p
 .mark:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .mark i{width:26px;height:26px;display:block;flex:none}
 .mark i svg{width:100%;height:100%;display:block}
+/* 3D logo: an extruded model drawn head-on, so at rest it looks flat; the SVG stays only as a fallback */
+.logo3d{width:100%;height:100%;display:block;pointer-events:none}
+.mark.is-3d svg,.foot-mark.is-3d svg{display:none}
 .pill{display:inline-flex;align-items:center;gap:8px;font:600 16px/1 var(--font);color:#fff;background:var(--ink);border:0;border-radius:999px;padding:15px 24px;cursor:pointer;text-decoration:none;-webkit-tap-highlight-color:transparent}
 .pill.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 2px var(--ink)}
 .icon-btn{display:inline-grid;place-items:center;width:48px;height:48px;margin-right:-10px;padding:0;border:0;background:none;color:var(--ink);border-radius:50%;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -42,7 +45,6 @@ header{display:flex;align-items:center;justify-content:space-between;padding:28p
 [data-view]{cursor:grab;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 [data-view]:active{cursor:grabbing}
 h1,.meter,.band,.chips span{-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
-.mark i{will-change:transform}
 .hero{display:grid;grid-template-columns:1fr 1fr;gap:clamp(40px,6vw,88px);align-items:center;padding:clamp(40px,7vw,96px) 0 clamp(96px,11vw,150px);min-height:min(86vh,860px)}
 h1{font-weight:600;font-size:clamp(46px,6vw,80px);line-height:1.02;letter-spacing:-.035em;margin:0 0 clamp(14px,1.4vw,20px)}
 h1 .w{display:inline-block}
@@ -114,13 +116,17 @@ footer .dim{color:rgba(245,243,239,.62)}
 .foot-mark{display:block;width:30px;height:30px;margin-bottom:16px;-webkit-tap-highlight-color:transparent}
 .foot-mark svg{width:100%;height:100%;display:block}
 .foot-mark:focus-visible{outline:2px solid #f5f3ef;outline-offset:4px;border-radius:6px}
-.foot-mark{position:relative;transition:transform .35s cubic-bezier(.2,.7,.2,1),opacity .25s ease}
+.foot-mark{position:relative}
 .foot-mark::after{content:"";position:absolute;inset:-9px}
-.foot-name{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;text-decoration-color:rgba(245,243,239,.35);padding:12px 0;margin:-12px 0;-webkit-tap-highlight-color:transparent;transition:text-decoration-color .25s ease,opacity .25s ease}
+.foot-name{position:relative;white-space:nowrap;text-decoration:none;padding:12px 0;margin:-12px 0;-webkit-tap-highlight-color:transparent;transition:opacity .25s ease}
+/* underline: faint line always; bright line grows left to right on hover/focus/tap, shrinks back on leave (transform only) */
+.foot-name::before,.foot-name::after{content:"";position:absolute;left:0;right:0;bottom:var(--ul-b,10px);height:1px;background:rgba(245,243,239,.35);pointer-events:none}
+.foot-name::after{background:#f5f3ef;transform:scaleX(0);transform-origin:left center;transition:transform .36s cubic-bezier(.22,.61,.36,1)}
+.foot-name:focus-visible::after,.foot-name.is-tap::after{transform:scaleX(1)}
 .foot-name:focus-visible{outline:2px solid #f5f3ef;outline-offset:2px;border-radius:4px}
-@media (hover:hover){.foot-mark:hover{transform:translateY(-2px) rotate(-8deg);opacity:.85}.foot-name:hover{text-decoration-color:#f5f3ef}}
-.foot-mark:active{transform:scale(.92)}.foot-name:active{opacity:.7}
-@media (prefers-reduced-motion:reduce){.foot-mark{transition:opacity .25s ease}.foot-mark:hover{transform:none}}
+@media (hover:hover){.foot-name:hover::after{transform:scaleX(1)}}
+.foot-name:active{opacity:.7}
+@media (prefers-reduced-motion:reduce){.foot-name::after{transition:none}}
 .js .reveal{opacity:0;transform:translateY(24px)}
 .m{display:inline-block;overflow:hidden;padding:.14em .08em .16em;margin:-.14em -.08em -.16em}
 .m>.mi{display:inline-block}
@@ -241,6 +247,7 @@ footer .dim{color:rgba(245,243,239,.62)}
 </div>
 <div class="foot-space" aria-hidden="true"></div>
 <footer><div class="wrap"><a class="foot-mark" href="https://shifatmasud-framer.vercel.app/" aria-label="Shifat Masud, portfolio" draggable="false"><svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 204 204" aria-hidden="true"><path fill="#f5f3ef" d="M115.66 1.82L166.95 1.82A14 14 0 0 1 176.85 25.72L111.29 91.28A36 36 0 0 1 85.84 101.82L34.55 101.82A14 14 0 0 1 24.65 77.92L90.21 12.36A36 36 0 0 1 115.66 1.82ZM114.16 98.18L165.45 98.18A14 14 0 0 1 175.35 122.08L109.79 187.64A36 36 0 0 1 84.34 198.18L33.05 198.18A14 14 0 0 1 23.15 174.28L88.71 108.72A36 36 0 0 1 114.16 98.18Z"/></svg></a><span>The Cost of Design. An idea by <a class="foot-name" href="https://shifatmasud-framer.vercel.app/" aria-label="Shifat Masud, portfolio" draggable="false">Shifat Masud</a></span><span class="dim">November 2026</span></div></footer>
+<script>(function(){document.querySelectorAll(".foot-name").forEach(function(a){var t;a.addEventListener("pointerdown",function(e){if(e.pointerType==="mouse")return;clearTimeout(t);a.classList.add("is-tap");t=setTimeout(function(){a.classList.remove("is-tap")},700)},{passive:true})})})();</script>
 <script>(function(){var f=document.querySelector("footer"),s=document.querySelector(".foot-space");function u(){s.style.height=f.offsetHeight+"px"}u();if(window.ResizeObserver)new ResizeObserver(u).observe(f);else addEventListener("resize",u)})();</script>
 
 <script>
@@ -481,19 +488,6 @@ if (!reduce) {
   });
   popWord(document.querySelector('h1'));
   document.querySelectorAll('h2 .pop, h3 .pop').forEach((em) => popWord(em.parentElement));
-
-  // the logo in the nav does a happy spin
-  const mk = document.querySelector('.mark i');
-  const spin = () => animate(mk, { rotate: 0, scale: 1 }, { rotate: spring(260, 12, { velocity: 900 }), scale: spring(500, 10, { velocity: -6 }) });
-  mk.parentElement.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') spin(); }, { passive: true });
-  mk.parentElement.addEventListener('touchstart', spin, { passive: true });
-  // the logo is a link: a tap opens it, a drag does not
-  let mk0 = null;
-  mk.parentElement.addEventListener('pointerdown', (e) => { mk0 = [e.clientX, e.clientY]; }, { passive: true });
-  mk.parentElement.addEventListener('click', (e) => {
-    if (mk0 && e.detail && Math.hypot(e.clientX - mk0[0], e.clientY - mk0[1]) > 8) e.preventDefault();
-    mk0 = null;
-  });
 
   // pull toward the pointer: buttons, pills, chips, cards and tiles
   document.querySelectorAll('#share').forEach((el) => { magnet(el, 6); press(el); });
@@ -1041,6 +1035,134 @@ function frame() {
   }
 }
 requestAnimationFrame(frame);
+</script>
+<script type="module" id="logo-3d">
+// Logo marks: a real extruded 3D model of the mark, drawn head-on so it looks flat at rest.
+// Hover tilts it toward the pointer; a click spins it once on Y, then the link opens.
+// One tiny shared WebGL canvas draws each logo into its own 2D canvas, only while something moves.
+const URL_ = 'https://shifatmasud-framer.vercel.app/';
+const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+const MAX = 18 * Math.PI / 180, SPIN = 700;
+const logos = [...document.querySelectorAll('.mark, .foot-mark')].map((a) => ({
+  a, box: a.querySelector('i') || a, svg: a.querySelector('svg'),
+  rx: 0, ry: 0, vx: 0, vy: 0, tx: 0, ty: 0, spin: -1, t0: 0, down: null, drag: false, touch: false
+}));
+let draw = null, raf = 0;
+const kick = () => { if (draw && !raf) raf = requestAnimationFrame(tick); };
+const aim = (L, x, y) => {
+  if (reduce.matches || L.spin >= 0) return;
+  const r = L.a.getBoundingClientRect();
+  const nx = Math.max(-1, Math.min(1, (x - (r.left + r.width / 2)) / (r.width / 2)));
+  const ny = Math.max(-1, Math.min(1, (y - (r.top + r.height / 2)) / (r.height / 2)));
+  L.ty = nx * MAX; L.tx = ny * MAX; kick();
+};
+const rest = (L) => { L.tx = L.ty = 0; kick(); };
+const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+logos.forEach((L) => {
+  const a = L.a;
+  a.addEventListener('pointerdown', (e) => {
+    L.down = [e.clientX, e.clientY]; L.drag = false;
+    if (e.pointerType !== 'mouse') { L.touch = true; aim(L, e.clientX, e.clientY); }
+  }, { passive: true });
+  a.addEventListener('pointermove', (e) => {
+    if (L.down && Math.hypot(e.clientX - L.down[0], e.clientY - L.down[1]) > 8) L.drag = true;
+    if (e.pointerType === 'mouse' || L.touch) aim(L, e.clientX, e.clientY);
+  }, { passive: true });
+  const up = () => { L.touch = false; setTimeout(() => { L.down = null; }, 0); if (L.spin < 0) rest(L); };
+  a.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') up(); else setTimeout(() => { L.down = null; }, 0); }, { passive: true });
+  a.addEventListener('pointercancel', () => { L.touch = false; L.down = null; rest(L); }, { passive: true });
+  a.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') { L.down = null; rest(L); } }, { passive: true });
+  a.addEventListener('click', (e) => {
+    // a drag never opens the link
+    if (L.drag && e.detail) { e.preventDefault(); L.drag = false; return; }
+    // new tab right away, as the browser does it
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    if (reduce.matches || !draw) return;
+    e.preventDefault();
+    if (L.spin >= 0) return;
+    L.spin = 0; L.t0 = performance.now(); L.tx = L.ty = 0; kick();
+  });
+});
+// coming back with the Back button: start flat and still
+addEventListener('pageshow', (e) => { if (e.persisted) logos.forEach((L) => { L.spin = -1; L.rx = L.ry = L.vx = L.vy = L.tx = L.ty = 0; if (draw) draw(L); }); });
+
+function tick() {
+  raf = 0;
+  const now = performance.now();
+  let busy = false;
+  for (const L of logos) {
+    let moved = false;
+    // soft spring toward the target tilt
+    const k = 140, c = 19, dt = 1 / 60;
+    for (const ax of ['x', 'y']) {
+      const p = 'r' + ax, v = 'v' + ax, t = 't' + ax;
+      if (Math.abs(L[t] - L[p]) > 1e-4 || Math.abs(L[v]) > 1e-3) {
+        L[v] += (k * (L[t] - L[p]) - c * L[v]) * dt; L[p] += L[v] * dt; moved = true;
+      } else if (L[p] !== L[t]) { L[p] = L[t]; L[v] = 0; moved = true; }
+    }
+    let go = false;
+    if (L.spin >= 0) {
+      L.spin = Math.min(1, (now - L.t0) / SPIN); moved = true;
+      if (L.spin >= 1) { L.spin = -1; L.rx = L.ry = L.vx = L.vy = 0; go = true; }
+    }
+    if (moved) { draw(L); busy = true; }
+    if (go) { L.a.dispatchEvent(new CustomEvent('logospun')); location.assign(L.a.href || URL_); }
+  }
+  if (busy) kick();
+}
+
+try {
+  const THREE = await import('three');
+  const { SVGLoader } = await import('three/addons/loaders/SVGLoader.js');
+  const gl = document.createElement('canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, alpha: true, preserveDrawingBuffer: true, powerPreference: 'low-power' });
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.setClearColor(0x000000, 0);
+  const cam = new THREE.OrthographicCamera(-102, 102, 102, -102, 1, 1000); cam.position.z = 500;
+  const scene = new THREE.Scene();
+  const geoFor = {};
+  const meshFor = (svg) => {
+    const path = svg.querySelector('path'), d = path.getAttribute('d'), fill = path.getAttribute('fill');
+    if (!geoFor[d]) {
+      const data = new SVGLoader().parse(`<svg xmlns="http://www.w3.org/2000/svg"><path d="${d}"/></svg>`);
+      const shapes = data.paths.flatMap((p) => p.toShapes(true));
+      const g = new THREE.ExtrudeGeometry(shapes, { depth: 40, bevelEnabled: false, curveSegments: 14 });
+      // SVG y points down: centre on the viewBox and turn it over (flips y and z, keeps faces outward)
+      g.translate(-100, -100, -20); g.rotateX(Math.PI);
+      geoFor[d] = g;
+    }
+    const col = new THREE.Color(fill);
+    const lum = col.r * 0.2126 + col.g * 0.7152 + col.b * 0.0722;
+    const side = col.clone().lerp(new THREE.Color(lum < 0.5 ? 0xffffff : 0x000000), lum < 0.5 ? 0.3 : 0.38);
+    return new THREE.Mesh(geoFor[d], [new THREE.MeshBasicMaterial({ color: col }), new THREE.MeshBasicMaterial({ color: side })]);
+  };
+  let dpr = 0;
+  logos.forEach((L) => {
+    L.mesh = meshFor(L.svg);
+    L.cv = document.createElement('canvas'); L.cv.className = 'logo3d'; L.cv.setAttribute('aria-hidden', 'true');
+    L.ctx = L.cv.getContext('2d');
+  });
+  draw = (L) => {
+    const w = L.box.clientWidth || 26, px = Math.round(w * dpr);
+    if (L.cv.width !== px) { L.cv.width = L.cv.height = px; }
+    const S = Math.max(...logos.map((o) => Math.round((o.box.clientWidth || 26) * dpr)));
+    if (gl.width !== S) renderer.setSize(S, S, false);
+    const m = L.mesh;
+    m.rotation.set(L.rx, L.ry + (L.spin >= 0 ? ease(L.spin) * Math.PI * 2 : 0), 0, 'YXZ');
+    scene.add(m); renderer.render(scene, cam); scene.remove(m);
+    L.ctx.clearRect(0, 0, px, px); L.ctx.drawImage(gl, 0, 0, gl.width, gl.height, 0, 0, px, px);
+  };
+  const all = () => { dpr = Math.min(devicePixelRatio || 1, 2); logos.forEach(draw); };
+  all();
+  logos.forEach((L) => { L.box.appendChild(L.cv); L.a.classList.add('is-3d'); });
+  addEventListener('resize', () => { if (Math.min(devicePixelRatio || 1, 2) !== dpr) all(); }, { passive: true });
+  gl.addEventListener('webglcontextlost', () => { draw = null; logos.forEach((L) => { L.a.classList.remove('is-3d'); L.cv.remove(); }); });
+  window.__logo3d = { logos, draw: (i) => draw && draw(logos[i]) };
+} catch (err) {
+  // no WebGL: the flat SVG logos stay, and the links work as plain links
+  draw = null;
+}
 </script>
 </body>
 </html>
