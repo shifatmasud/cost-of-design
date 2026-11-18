@@ -31,12 +31,22 @@ header{display:flex;align-items:center;justify-content:space-between;padding:28p
 .mark i{width:20px;height:20px;border-radius:7px;background:var(--orange);border:2.5px solid var(--ink);display:block}
 .pill{display:inline-flex;align-items:center;gap:8px;font:600 16px/1 var(--font);color:#fff;background:var(--ink);border:0;border-radius:999px;padding:15px 24px;cursor:pointer;text-decoration:none;-webkit-tap-highlight-color:transparent}
 .pill.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 2px var(--ink)}
+.icon-btn{display:inline-grid;place-items:center;width:48px;height:48px;margin-right:-10px;padding:0;border:0;background:none;color:var(--ink);border-radius:50%;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.icon-btn svg{width:26px;height:26px;display:block}
+.icon-btn .ic-check,.icon-btn.done .ic-share{display:none}
+.icon-btn.done .ic-check{display:block}
+.icon-btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+[data-view]{cursor:grab;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+[data-view]:active{cursor:grabbing}
+h1,.meter,.band,.chips span,.tag{-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.mark i{will-change:transform}
 .tag{display:inline-block;font-weight:600;font-size:14px;background:var(--yellow);border-radius:999px;padding:8px 16px}
 .hero{display:grid;grid-template-columns:1fr 1fr;gap:clamp(40px,6vw,88px);align-items:center;padding:clamp(40px,7vw,96px) 0 clamp(96px,11vw,150px);min-height:min(86vh,860px)}
 h1{font-weight:600;font-size:clamp(46px,6vw,80px);line-height:1.02;letter-spacing:-.035em;margin:28px 0 28px}
 h1 .w{display:inline-block}
 h1 em{font-style:normal;font-weight:700;display:inline-block;font-size:1.06em;letter-spacing:0;padding:0 .04em 0 .02em;white-space:nowrap}
-h1 em b{--f:#ffb8d6;--o:#d9468a;position:relative;display:inline-block;font-weight:700;color:var(--f);-webkit-text-stroke:.1em var(--o);paint-order:stroke fill;margin-left:-.07em;transform:translateY(var(--y,0)) rotate(var(--r,0deg))}
+h1 em b{--f:#ffb8d6;--o:#d9468a;position:relative;display:inline-block;font-weight:700;color:var(--f);-webkit-text-stroke:.1em var(--o);paint-order:stroke fill;margin-left:-.07em;translate:0 var(--y,0);rotate:var(--r,0deg)}
 h1 em b:first-child{margin-left:0}
 h1 em b::before{content:attr(data-l);position:absolute;left:0;top:0;z-index:-1;color:var(--o);-webkit-text-stroke:.16em var(--ink);paint-order:stroke fill;text-shadow:0 .08em .12em rgba(51,43,41,.18);pointer-events:none}
 h1 em b::after{content:attr(data-l);position:absolute;left:0;top:0;color:rgba(255,255,255,.85);-webkit-text-stroke:0;text-shadow:none;clip-path:inset(24% 50% 60% 18% round .08em);pointer-events:none}
@@ -94,7 +104,7 @@ footer a{color:inherit}
 .js .reveal{opacity:0;transform:translateY(24px)}
 .js h1 .w{opacity:0;transform:translateY(20px)}
 @media (max-width:860px){.hero,.row,.close,.head{grid-template-columns:1fr}.hero{min-height:0;padding-top:24px;gap:48px}.hero .view{max-width:480px;width:100%;justify-self:center}.close .view{max-width:320px;order:-1}.head{gap:16px}.meters{grid-template-columns:1fr}.budget .view{max-width:340px;width:100%}.rule .view{max-width:440px;justify-self:center}}
-@media (max-width:620px){body{font-size:18px}:root{--r:28px;--gap:96px}.grid2{grid-template-columns:1fr}header{padding:20px 0}header .pill{padding:12px 18px;font-size:15px}h1{font-size:clamp(42px,12vw,54px)}.hero .view{border-radius:36px}.band{padding:18px 0}.chips{margin-top:28px}}
+@media (max-width:620px){body{font-size:18px}:root{--r:28px;--gap:96px}.grid2{grid-template-columns:1fr}header{padding:20px 0}h1{font-size:clamp(42px,12vw,54px)}.hero .view{border-radius:36px}.band{padding:18px 0}.chips{margin-top:28px}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.js .reveal,.js h1 .w{opacity:1;transform:none}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/","motion":"https://cdn.jsdelivr.net/npm/motion@14.14.0/+esm"}}</script>
@@ -105,7 +115,7 @@ footer a{color:inherit}
 <div class="wrap">
 <header>
 <div class="mark"><i></i>Shifat Masud</div>
-<button class="pill" id="share" type="button">Share this</button>
+<button class="icon-btn" id="share" type="button" aria-label="Share this page"><svg class="ic-share" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M176,160a39.89,39.89,0,0,0-28.62,12.09l-46.1-29.63a39.8,39.8,0,0,0,0-28.92l46.1-29.63a40,40,0,1,0-8.66-13.45l-46.1,29.63a40,40,0,1,0,0,55.82l46.1,29.63A40,40,0,1,0,176,160Zm0-128a24,24,0,1,1-24,24A24,24,0,0,1,176,32ZM64,152a24,24,0,1,1,24-24A24,24,0,0,1,64,152Zm112,72a24,24,0,1,1,24-24A24,24,0,0,1,176,224Z"/></svg><svg class="ic-check" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></button><span class="sr" id="share-msg" aria-live="polite"></span>
 </header>
 
 <div class="hero">
@@ -187,21 +197,77 @@ footer a{color:inherit}
 </div>
 
 <script type="module">
-import { animate, inView, scroll, stagger, hover } from 'motion';
+import { animate, inView, scroll, stagger } from 'motion';
 window.__motionReady = true;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ease = [0.22, 1, 0.36, 1];
+const spring = (stiffness, damping, extra) => ({ type: 'spring', stiffness, damping, ...extra });
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+// A drag never fires a tap: if the finger moved, the click that follows is dropped. Listeners are passive, so scrolling is never blocked.
+let tx0 = 0, ty0 = 0, dragged = false, dragEnd = 0;
+addEventListener('touchstart', (e) => { const t = e.touches[0]; tx0 = t.clientX; ty0 = t.clientY; dragged = false; }, { passive: true, capture: true });
+addEventListener('touchmove', (e) => { const t = e.touches[0]; if (Math.hypot(t.clientX - tx0, t.clientY - ty0) > 10) dragged = true; }, { passive: true, capture: true });
+addEventListener('touchend', () => { if (dragged) dragEnd = performance.now(); }, { passive: true, capture: true });
+addEventListener('click', (e) => { if (dragged && performance.now() - dragEnd < 600) { e.preventDefault(); e.stopPropagation(); } dragged = false; }, true);
 
 const share = document.getElementById('share');
+const shareMsg = document.getElementById('share-msg');
 share.addEventListener('click', async () => {
   const data = { title: document.title, url: location.href };
   try {
     if (navigator.share) { await navigator.share(data); return; }
     await navigator.clipboard.writeText(location.href);
-    share.textContent = 'Link copied';
-    if (!reduce) animate(share, { scale: [0.94, 1] }, { type: 'spring', stiffness: 420, damping: 18 });
-    setTimeout(() => (share.textContent = 'Share this'), 1800);
+    share.classList.add('done'); share.setAttribute('aria-label', 'Link copied'); shareMsg.textContent = 'Link copied';
+    if (!reduce) animate(share.querySelector('.ic-check'), { scale: [0.4, 1], rotate: [-20, 0] }, spring(420, 16));
+    setTimeout(() => { share.classList.remove('done'); share.setAttribute('aria-label', 'Share this page'); shareMsg.textContent = ''; }, 1800);
   } catch (e) {}
+});
+
+// One pointer model for every element.
+// Mouse: hover moves it (push or pull). Touch: a finger dragging over it scrubs it, following the finger.
+// Lifting the finger, or leaving the element, springs it home. Taps keep their normal action.
+function track(el, { move, leave, tap }) {
+  let raf = 0, last = null, on = false, sx = 0, sy = 0, st = 0, moved = false;
+  const flush = () => { raf = 0; if (last) move(last.x, last.y, last.touch); };
+  const queue = (x, y, touch) => { last = { x, y, touch }; on = true; if (!raf) raf = requestAnimationFrame(flush); };
+  const end = () => { if (!on) return; on = false; last = null; if (raf) { cancelAnimationFrame(raf); raf = 0; } leave(); };
+  const inside = (x, y) => { const r = el.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; };
+  el.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') queue(e.clientX, e.clientY, false); }, { passive: true });
+  el.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') end(); }, { passive: true });
+  el.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') { sx = e.clientX; sy = e.clientY; st = performance.now(); } }, { passive: true });
+  el.addEventListener('pointerup', (e) => { if (tap && e.pointerType === 'mouse' && Math.hypot(e.clientX - sx, e.clientY - sy) < 6 && performance.now() - st < 500) tap(e.clientX, e.clientY); }, { passive: true });
+  el.addEventListener('touchstart', (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; st = performance.now(); moved = false; queue(sx, sy, true); }, { passive: true });
+  el.addEventListener('touchmove', (e) => { const t = e.touches[0]; if (Math.hypot(t.clientX - sx, t.clientY - sy) > 10) moved = true; if (inside(t.clientX, t.clientY)) queue(t.clientX, t.clientY, true); else end(); }, { passive: true });
+  el.addEventListener('touchend', (e) => { const t = e.changedTouches[0]; if (tap && !moved && performance.now() - st < 450) tap(t.clientX, t.clientY); end(); }, { passive: true });
+  el.addEventListener('touchcancel', end, { passive: true });
+}
+
+// pull: the element leans toward the pointer with a soft spring
+function magnet(el, s, lift = 0) {
+  const go = (x, y) => animate(el, { x, y }, spring(170, 17));
+  track(el, {
+    move(x, y) {
+      const r = el.getBoundingClientRect();
+      const dx = clamp((x - (r.left + r.width / 2)) / (r.width / 2), -1, 1), dy = clamp((y - (r.top + r.height / 2)) / (r.height / 2), -1, 1);
+      go(dx * s, dy * s + lift);
+    },
+    leave() { go(0, 0); }
+  });
+}
+// buttons and pills squish when pressed and spring back
+function press(el) {
+  const up = () => animate(el, { scale: 1 }, spring(500, 14));
+  el.addEventListener('pointerdown', () => animate(el, { scale: 0.9 }, spring(700, 30)), { passive: true });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach((t) => el.addEventListener(t, up, { passive: true }));
+}
+
+const meters = [...document.querySelectorAll('.meter')].map((m) => {
+  const fill = m.querySelector('.fill'), num = m.querySelector('.num'), trk = m.querySelector('.trk');
+  const to = +num.dataset.to, base = m.classList.contains('over') ? 1 : 0.6, max = m.classList.contains('over') ? 120 : 100;
+  let cur = to, na = null;
+  const show = (v, opts, from = cur) => { if (na) na.stop(); na = animate(from, v, { ...(opts || spring(200, 26)), onUpdate: (x) => { cur = x; num.firstChild.nodeValue = Math.round(x); } }); };
+  return { m, fill, trk, to, base, max, show };
 });
 
 if (!reduce) {
@@ -212,18 +278,76 @@ if (!reduce) {
   inView('.chips', (el) => {
     animate(el.children, { opacity: [0, 1], y: [12, 0] }, { delay: stagger(0.09, { startDelay: 0.3 }), duration: 0.8, ease });
   });
-  inView('.meter', (el) => {
-    const fill = el.querySelector('.fill');
-    const num = el.querySelector('.num');
-    const to = +num.dataset.to;
-    animate(fill, { scaleX: [0, 1] }, { duration: 1.6, delay: 0.35, ease });
-    animate(0, to, { duration: 1.6, delay: 0.35, ease, onUpdate: (v) => { num.firstChild.nodeValue = Math.round(v); } });
-  }, { margin: '0px 0px -10% 0px' });
-  const track = document.querySelector('.band .track');
-  animate(track, { x: ['0%', '-50%'] }, { duration: 48, ease: 'linear', repeat: Infinity });
-  hover('.tile', (el) => {
-    animate(el, { y: -4 }, { type: 'spring', stiffness: 220, damping: 24 });
-    return () => animate(el, { y: 0 }, { type: 'spring', stiffness: 220, damping: 24 });
+  meters.forEach((k) => inView(k.m, () => {
+    animate(k.fill, { scaleX: [0, 1] }, { duration: 1.6, delay: 0.35, ease });
+    k.show(k.to, { duration: 1.6, delay: 0.35, ease }, 0);
+  }, { margin: '0px 0px -10% 0px' }));
+
+  // band: slows down under the pointer or finger, then drifts back to speed
+  const band = document.querySelector('.band');
+  const bandAnim = animate(band.querySelector('.track'), { x: ['0%', '-50%'] }, { duration: 48, ease: 'linear', repeat: Infinity });
+  let sp = 1, spTo = 1, sa = null;
+  const speed = (v) => { if (v === spTo) return; spTo = v; if (sa) sa.stop(); sa = animate(sp, v, { ...spring(60, 16), onUpdate: (x) => { sp = x; bandAnim.speed = Math.max(0.05, x); } }); };
+  track(band, { move() { speed(0.2); }, leave() { speed(1); } });
+
+  // rainbow letters: pushed away from the pointer, and each one bounces when you touch it; a tap sends a wave
+  const title = document.querySelector('h1');
+  const letters = [...title.querySelectorAll('em b')];
+  const lt = letters.map(() => 0);
+  let lastL = -1;
+  const bounce = (i, d = 0, force = false) => {
+    const now = performance.now();
+    if (!force && now - lt[i] < 380) return;
+    lt[i] = now + d * 1000;
+    const b = letters[i];
+    animate(b, { y: 0 }, spring(420, 11, { velocity: -460, delay: d }));
+    animate(b, { scaleY: 1 }, spring(520, 10, { velocity: -5, delay: d }));
+    animate(b, { scaleX: 1 }, spring(520, 10, { velocity: 3.5, delay: d }));
+  };
+  const pushAll = (x, y) => {
+    letters.forEach((b, i) => {
+      const r = b.getBoundingClientRect();
+      const dx = r.left + r.width / 2 - x, dy = r.top + r.height / 2 - y, d = Math.hypot(dx, dy);
+      const R = Math.max(110, r.height * 1.6), f = Math.max(0, 1 - d / R) ** 2;
+      animate(b, { x: Math.sign(dx) * f * r.width * 0.28, rotate: Math.sign(dx) * f * 9 }, spring(240, 16));
+    });
+  };
+  track(title, {
+    move(x, y) {
+      pushAll(x, y);
+      const i = letters.findIndex((b) => { const r = b.getBoundingClientRect(); return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; });
+      if (i >= 0 && i !== lastL) bounce(i);
+      lastL = i;
+    },
+    leave() { lastL = -1; letters.forEach((b) => animate(b, { x: 0, rotate: 0 }, spring(200, 15))); },
+    tap() { letters.forEach((b, i) => bounce(i, i * 0.06, true)); }
+  });
+
+  // the little orange mark in the nav does a happy spin
+  const mk = document.querySelector('.mark i');
+  const spin = () => animate(mk, { rotate: 0, scale: 1 }, { rotate: spring(260, 12, { velocity: 900 }), scale: spring(500, 10, { velocity: -6 }) });
+  mk.parentElement.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') spin(); }, { passive: true });
+  mk.parentElement.addEventListener('touchstart', spin, { passive: true });
+
+  // pull toward the pointer: buttons, pills, chips, cards and tiles
+  document.querySelectorAll('.pill, #share').forEach((el) => { magnet(el, 6); press(el); });
+  magnet(document.querySelector('.tag'), 5); press(document.querySelector('.tag'));
+  document.querySelectorAll('.chips span').forEach((el) => { magnet(el, 5); press(el); });
+  document.querySelectorAll('.tile').forEach((el) => magnet(el, 6, -4));
+  document.querySelectorAll('.card').forEach((el) => magnet(el, 3));
+
+  // budget meters: the bar follows the pointer or finger and the number counts with it, then both spring back
+  meters.forEach((k) => {
+    magnet(k.m, 4);
+    track(k.m, {
+      move(x) {
+        const r = k.trk.getBoundingClientRect();
+        const f = clamp((x - r.left) / r.width, 0.04, 1);
+        animate(k.fill, { scaleX: f / k.base }, spring(220, 22));
+        k.show(f * k.max);
+      },
+      leave() { animate(k.fill, { scaleX: 1 }, spring(160, 16)); k.show(k.to, spring(160, 20)); }
+    });
   });
 }
 
@@ -302,15 +426,23 @@ function blob(r, y) { const m = new THREE.Mesh(G.disc, shadowMat); m.rotation.x 
 function buddy(size, ph = 0) {
   const g = obj(G.box, C.orange, size, 0.035);
   const eyes = [-0.2, 0.2].map((x) => { const e = new THREE.Mesh(G.eye, eyeMat); e.position.set(x, 0.08, 0.508); e.scale.set(1, 1, 0.4); g.add(e); return e; });
-  g.userData = { eyes, ph, lx: 0, ly: 0, squint: 1 };
+  g.userData = { eyes, ph, lx: 0, ly: 0, squint: 1, joy: 0 };
   return g;
 }
+// joy > 0 shows happy eyes (two soft arcs) for a moment after a tap
 function blink(b, t, lookX = 0, lookY = 0) {
   const u = b.userData;
   const p = (t + u.ph) % 4.6;
   const open = p < 0.18 ? 1 - Math.sin((p / 0.18) * Math.PI) * 0.9 : 1;
+  u.joy = Math.max(0, u.joy - 0.011);
+  const happy = u.joy > 0.2;
   u.lx += (lookX - u.lx) * 0.06; u.ly += (lookY - u.ly) * 0.06;
-  u.eyes.forEach((e, i) => { e.scale.y = open * u.squint; e.position.x = (i ? 0.2 : -0.2) + u.lx * 0.09; e.position.y = 0.08 + u.ly * 0.07; });
+  u.eyes.forEach((e, i) => {
+    e.scale.y = happy ? 0.3 : open * u.squint;
+    e.rotation.z = happy ? (i ? -0.4 : 0.4) : 0;
+    e.position.x = (i ? 0.2 : -0.2) + u.lx * 0.09;
+    e.position.y = 0.08 + u.ly * 0.07 + (happy ? 0.03 : 0);
+  });
 }
 function stage(scene) {
   scene.add(new THREE.AmbientLight(0xffffff, 1.3));
@@ -321,8 +453,104 @@ const easeOutBounce = (x) => { const n = 7.5625, d = 2.75; if (x < 1 / d) return
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 const pointer = () => { const s = S(); s.px += (s.tx - s.px) * 0.05; s.py += (s.ty - s.py) * 0.05; return s; };
 
+// ---- touch and hover for the 3D ----
+// Each shape can get a tiny spring (no physics library). Mouse hover pushes shapes away (or pulls, when push < 0).
+// A finger dragging over a scene does the same, following the finger. Pressing on a shape grabs it; letting go springs it home.
+const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _a = new THREE.Vector3(), _b = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3();
+const _n = new THREE.Vector2();
+const ray = new THREE.Raycaster();
+function addPoke(v, o, opt = {}) {
+  const p = { o, push: 0.45, k: 60, c: 9, floor: false, h: 0, hop: 3.2, grab: true, reach: 1.3, ...opt, off: new THREE.Vector3(), vel: new THREE.Vector3(), sq: 0, sqv: 0, app: new THREE.Vector3(), sx: 1, sy: 1 };
+  o.userData.__p = p; v.pokes.push(p); return p;
+}
+function toLocal(o, w, d) { _b.copy(w).add(d); o.parent.worldToLocal(_b); _v.copy(w); o.parent.worldToLocal(_v); d.subVectors(_b, _v); }
+function pick(v, nx, ny) {
+  ray.setFromCamera(_n.set(nx, ny), v.cam);
+  const live = v.pokes.filter((p) => p.o.visible);
+  const hit = ray.intersectObjects(live.map((p) => p.o), true)[0];
+  if (hit) { let o = hit.object; while (o && !o.userData.__p) o = o.parent; if (o) return o.userData.__p; }
+  // forgiving taps on small shapes: take the nearest one on screen
+  let best = null, bd = 0.16;
+  for (const p of live) { p.o.getWorldPosition(_w).project(v.cam); const d = Math.hypot((_w.x - nx) * v.aspect, _w.y - ny); if (d < bd) { bd = d; best = p; } }
+  return best;
+}
+function kick(v, nx, ny, s, R) {
+  if (reduce) return;
+  for (const p of v.pokes) {
+    p.o.getWorldPosition(_w); _v.copy(_w).project(v.cam);
+    const dx = (_v.x - nx) * v.aspect, dy = _v.y - ny, d = Math.hypot(dx, dy) || 1e-4;
+    if (d > R) continue;
+    const f = (1 - d / R) * s;
+    _a.copy(_r).multiplyScalar((dx / d) * f).addScaledVector(_u, (dy / d) * f + f * 0.3);
+    toLocal(p.o, _w, _a); p.vel.add(_a); p.sqv += f * 0.4;
+  }
+}
+function cheer(p) {
+  if (!p) return;
+  if (p.o.userData.eyes) p.o.userData.joy = 1;
+  if (reduce) return;
+  p.vel.y += p.hop; p.sqv -= 5;
+}
+function restore(v) {
+  for (const p of v.pokes) { const o = p.o; o.position.sub(p.app); o.scale.x /= p.sx; o.scale.z /= p.sx; o.scale.y /= p.sy; p.app.set(0, 0, 0); p.sx = p.sy = 1; }
+}
+function physics(v, dt, t) {
+  const inp = v.inp, cam = v.cam;
+  v.scene.updateMatrixWorld(); cam.updateMatrixWorld();
+  _r.setFromMatrixColumn(cam.matrixWorld, 0); _u.setFromMatrixColumn(cam.matrixWorld, 1);
+  if (inp.press) { inp.press = false; const h = pick(v, inp.nx, inp.ny); inp.grab = h && h.grab ? h : null; }
+  if (inp.taps.length) { const taps = inp.taps.splice(0); for (const [x, y] of taps) { const h = pick(v, x, y); v.onTap.forEach((f) => f(h, x, y, t)); } }
+  const live = inp.active && !reduce;
+  for (const p of v.pokes) {
+    const o = p.o;
+    _a.set(0, 0, 0);
+    if (live && o.visible) {
+      o.getWorldPosition(_w); _v.copy(_w).project(cam);
+      if (inp.grab === p && inp.down) {
+        _a.set(inp.nx, inp.ny, _v.z).unproject(cam).sub(_w);
+        if (_a.length() > p.reach) _a.setLength(p.reach);
+      } else {
+        const dx = (_v.x - inp.nx) * v.aspect, dy = _v.y - inp.ny, d = Math.hypot(dx, dy) || 1e-4, R = 0.6;
+        if (d < R) { const f = (1 - d / R) ** 2 * p.push; _a.copy(_r).multiplyScalar((dx / d) * f).addScaledVector(_u, (dy / d) * f); }
+      }
+      toLocal(o, _w, _a);
+    }
+    p.vel.x += (p.k * (_a.x - p.off.x) - p.c * p.vel.x) * dt;
+    p.vel.y += (p.k * (_a.y - p.off.y) - p.c * p.vel.y) * dt;
+    p.vel.z += (p.k * (_a.z - p.off.z) - p.c * p.vel.z) * dt;
+    p.off.addScaledVector(p.vel, dt);
+    p.sqv += (-180 * p.sq - 12 * p.sqv) * dt; p.sq += p.sqv * dt;
+    if (p.floor && p.off.y < 0) { if (p.vel.y < -0.8) p.sqv += -p.vel.y * 1.6; p.off.y = 0; p.vel.y *= -0.2; }
+    p.sq = Math.max(-0.35, Math.min(0.35, p.sq));
+    const sx = 1 + p.sq * 0.5, sy = 1 - p.sq;
+    p.app.copy(p.off); if (p.floor) p.app.y -= (1 - sy) * p.h;
+    o.position.add(p.app); o.scale.x *= sx; o.scale.z *= sx; o.scale.y *= sy; p.sx = sx; p.sy = sy;
+  }
+}
+function attach(v) {
+  const el = v.el, inp = v.inp;
+  const at = (x, y) => { const r = el.getBoundingClientRect(); inp.nx = ((x - r.left) / r.width) * 2 - 1; inp.ny = -(((y - r.top) / r.height) * 2 - 1); return r; };
+  let sx = 0, sy = 0, st = 0, moved = false;
+  const start = (x, y) => { at(x, y); sx = x; sy = y; st = performance.now(); moved = false; inp.active = true; inp.down = true; inp.press = true; };
+  const end = () => { inp.active = false; inp.down = false; inp.grab = null; };
+  const tapIf = (x, y) => { if (!moved && performance.now() - st < 450) { at(x, y); inp.taps.push([inp.nx, inp.ny]); } };
+  el.addEventListener('pointermove', (e) => { if (e.pointerType !== 'mouse') return; at(e.clientX, e.clientY); inp.active = true; if (inp.down && Math.hypot(e.clientX - sx, e.clientY - sy) > 6) moved = true; }, { passive: true });
+  el.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse' && e.button === 0) start(e.clientX, e.clientY); }, { passive: true });
+  el.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') return; if (inp.down) tapIf(e.clientX, e.clientY); inp.down = false; inp.grab = null; }, { passive: true });
+  el.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') end(); }, { passive: true });
+  el.addEventListener('touchstart', (e) => { const t = e.touches[0]; start(t.clientX, t.clientY); }, { passive: true });
+  el.addEventListener('touchmove', (e) => {
+    const t = e.touches[0];
+    if (Math.hypot(t.clientX - sx, t.clientY - sy) > 10) moved = true;
+    const r = at(t.clientX, t.clientY);
+    if (t.clientX < r.left || t.clientX > r.right || t.clientY < r.top || t.clientY > r.bottom) end(); else inp.active = true;
+  }, { passive: true });
+  el.addEventListener('touchend', (e) => { const t = e.changedTouches[0]; tapIf(t.clientX, t.clientY); end(); }, { passive: true });
+  el.addEventListener('touchcancel', end, { passive: true });
+}
+
 const builders = {
-  hero(scene) {
+  hero(scene, cam, x) {
     const root = new THREE.Group(); scene.add(root);
     const plinth = obj(G.plinth, C.white); plinth.position.y = -1.6; root.add(plinth);
     root.add(blob(1.75, -1.82));
@@ -333,6 +561,10 @@ const builders = {
     const tor = obj(G.torus, C.coral, 0.5); tor.position.set(2.0, 1.55, -0.4); root.add(tor);
     const moon = obj(G.sphere, C.peach, 0.2); root.add(moon);
     const cone = obj(G.cone, C.lilac, 0.32); cone.position.set(-1.05, -1.17, 0.9); root.add(cone);
+    [sph, tor, moon].forEach((o) => x.poke(o, { push: 0.5 }));
+    [cap, cone].forEach((o) => x.poke(o, { push: 0.35, floor: true, h: 0.3 }));
+    const pb = x.poke(b, { push: -0.2, floor: true, h: 0.5, hop: 3.6 });
+    x.tap((h, nx, ny) => { if (h === pb) cheer(pb); else if (h) { h.vel.y += 2.6; h.sqv -= 3; } else kick(x.v, nx, ny, 3, 0.9); });
     return (t, cam, aspect) => {
       const s = pointer();
       const tt = reduce ? 0 : t;
@@ -344,11 +576,11 @@ const builders = {
       root.rotation.x = s.py * 0.12;
       root.position.y = 0.15 + s.hero * 0.6;
       b.rotation.y = 0.35 - s.px * 0.25 - s.hero * 0.6;
-      blink(b, t, s.px * 2, -s.py * 2);
+      blink(b, t, x.inp.active ? x.inp.nx * 2 : s.px * 2, x.inp.active ? x.inp.ny * 1.5 : -s.py * 2);
       cam.position.set(0, 2.2, aspect < 1 ? 11 / aspect : 11);
     };
   },
-  rule(scene) {
+  rule(scene, cam, x) {
     const root = new THREE.Group(); root.position.y = -0.1; scene.add(root);
     const ful = obj(G.cone, C.coral, 0.6); ful.position.y = -0.42; root.add(ful);
     root.add(blob(1.1, -0.86));
@@ -357,43 +589,85 @@ const builders = {
     const items = [
       [G.box, C.white, 0.5, 0.25], [G.sphere, C.teal, 0.28, 0.28], [G.torus, C.orange, 0.3, 0.33], [G.capsule, C.green, 0.3, 0.285], [G.cone, C.peach, 0.32, 0.224]
     ].map(([g, c, s, h], i) => { const o = obj(g, c, s); o.position.set(-1.72 + i * 0.86, 0.08 + h, 0); o.userData = { h, ph: i * 0.7 }; plank.add(o); return o; });
-    return (t, cam, aspect) => {
+    const P = items.map((o) => x.poke(o, { push: 0.35, floor: true, h: o.userData.h }));
+    // the seesaw tips toward the side you point at or tap
+    let tilt = 0, tv = 0;
+    x.tap((h, nx) => {
+      if (reduce) return;
+      const side = Math.sign(nx) || 1;
+      tv -= side * 1.8;
+      P.forEach((p, i) => { p.vel.y += Math.sign(i - 2) === -side ? 2.2 : 0.7; });
+      if (h) h.sqv -= 3;
+    });
+    return (t, cam, aspect, dt) => {
       const tt = reduce ? 0 : t;
-      plank.rotation.z = Math.sin(tt * 0.55) * 0.07;
+      const lean = x.inp.active && !reduce ? -x.inp.nx * 0.13 : 0;
+      const goal = lean + Math.sin(tt * 0.55) * 0.07 * (x.inp.active ? 0.3 : 1);
+      tv += ((goal - tilt) * 40 - tv * 6) * dt; tilt += tv * dt;
+      plank.rotation.z = Math.max(-0.3, Math.min(0.3, tilt));
       items.forEach((o, i) => { const k = (tt * 0.8 + i * 0.5) % 5; const hop = k < 0.5 ? Math.sin((k / 0.5) * Math.PI) * 0.18 : 0; o.position.y = 0.08 + o.userData.h + hop; });
       items[2].rotation.y = tt * 0.6; items[0].rotation.y = 0.5 + Math.sin(tt * 0.5) * 0.2;
       scene.rotation.y = -0.25 + S().px * 0.2;
       cam.position.set(0, 2.0, aspect < 1.2 ? 10.5 / aspect * 1.25 : 10.5);
     };
   },
-  stack(scene) {
+  stack(scene, cam, x) {
     const root = new THREE.Group(); root.position.y = -0.1; root.rotation.y = 0.55; scene.add(root);
     const base = obj(G.small, C.white); base.position.y = -1.3; root.add(base);
     root.add(blob(1.35, -1.48));
     const plate = obj(G.plank, C.yellow, 0.45); plate.scale.set(0.45, 0.9, 1.7); plate.position.y = -1.0; root.add(plate);
-    const cols = [C.white, C.peach, C.orange];
-    const blocks = cols.map((c, i) => { const o = obj(G.box, c, 0.7 - i * 0.1); root.add(o); return o; });
-    let sink = 0;
+    const cols = [C.white, C.peach, C.orange, C.teal, C.yellow];
+    const sizes = [0.7, 0.6, 0.5, 0.42, 0.36];
+    const blocks = cols.map((c, i) => { const o = obj(G.box, c, sizes[i]); root.add(o); return o; });
+    const P = blocks.map((o) => x.poke(o, { push: 0.25, grab: false }));
+    // tap the scale to add a block; tap a block to take the top one off. It goes back to its own loop after a quiet while.
+    let sink = 0, mode = 'auto', n = 0, a0 = 0, idle = 0;
+    const st = sizes.map(() => ({ in: -99, out: -99 }));
+    x.tap((h, nx, ny, t) => {
+      idle = t;
+      if (mode !== 'hand') {
+        const T = t - a0; n = 0;
+        if (mode === 'auto' && T >= 0) { const k = T % 6.4; for (let i = 0; i < 3; i++) if (k > 1.2 + i * 1.2 && k < 5.2) n = i + 1; }
+        st.forEach((s) => { s.in = -99; s.out = -99; });
+        mode = 'hand';
+      }
+      const i = P.indexOf(h);
+      if (n > 0 && ((i >= 0 && i < n) || n === sizes.length)) { n--; st[n].out = t; }
+      else if (n < sizes.length) { st[n].in = t; st[n].out = -99; n++; }
+    });
     return (t, cam) => {
-      const T = reduce ? 3.9 : t % 6.4;
+      if (mode === 'hand' && t - idle > 9) { for (let i = 0; i < n; i++) st[i].out = t; n = 0; mode = 'leave'; a0 = t + 0.8; }
+      if (mode === 'leave' && t >= a0) mode = 'auto';
       let landed = 0, top = -0.93;
-      blocks.forEach((o, i) => {
-        const sz = 0.7 - i * 0.1, land = top + sz / 2;
-        const d = T - (0.5 + i * 1.2);
-        let y = 3.4, sc = sz;
-        if (d < 0) sc = 0; else if (d < 0.7) y = 3.4 - (3.4 - land) * easeOutBounce(d / 0.7); else { y = land; landed++; }
-        if (T > 5.2) sc = sz * (1 - easeOutBack(clamp01((T - 5.2) / 0.6)) * 1);
-        o.scale.setScalar(Math.max(0.0001, sc));
-        o.position.y = y - sink; o.rotation.y = i * 0.35;
-        top = land + sz / 2;
-      });
-      const target = T > 5.2 ? 0 : landed * 0.07;
-      sink += (target - sink) * 0.12;
+      if (mode === 'auto') {
+        const T = reduce ? 3.9 : (t - a0) % 6.4;
+        blocks.forEach((o, i) => {
+          const sz = sizes[i], land = top + sz / 2;
+          const d = T - (0.5 + i * 1.2);
+          let y = 3.4, sc = sz;
+          if (i > 2 || d < 0) sc = 0; else if (d < 0.7) y = 3.4 - (3.4 - land) * easeOutBounce(d / 0.7); else { y = land; landed++; }
+          if (T > 5.2) sc = Math.min(sc, sz * (1 - easeOutBack(clamp01((T - 5.2) / 0.6))));
+          o.visible = sc > 0.002; o.scale.setScalar(Math.max(0.0001, sc));
+          o.position.y = y - sink; o.rotation.y = i * 0.35;
+          top = land + sz / 2;
+        });
+        if (T > 5.2) landed = 0;
+      } else {
+        blocks.forEach((o, i) => {
+          const sz = sizes[i], land = top + sz / 2, s = st[i];
+          let y = land, sc = sz;
+          if (i < n) { const d = reduce ? 9 : t - s.in; if (d < 0.7) y = 3.4 - (3.4 - land) * easeOutBounce(clamp01(d / 0.7)); else landed++; top = land + sz / 2; }
+          else { const d = reduce ? 9 : t - s.out; if (d < 0.5) { y = land + easeOutBack(clamp01(d / 0.5)) * 0.8; sc = sz * (1 - clamp01(d / 0.5)); } else sc = 0; }
+          o.visible = sc > 0.002; o.scale.setScalar(Math.max(0.0001, sc));
+          o.position.y = y - sink; o.rotation.y = i * 0.35;
+        });
+      }
+      sink += (landed * 0.07 - sink) * 0.12;
       plate.position.y = -1.0 - sink;
       cam.position.set(0, 1.8, 9.5);
     };
   },
-  eye(scene) {
+  eye(scene, cam, x) {
     const root = new THREE.Group(); scene.add(root);
     const eye = new THREE.Group(); root.add(eye);
     eye.add(obj(G.sphere, C.white, 1.05, 0.035));
@@ -404,8 +678,11 @@ const builders = {
     const things = [[G.cone, C.coral], [G.torus, C.orange], [G.box, C.yellow], [G.capsule, C.green]].map(([g, c], i) => {
       const o = obj(g, c, 0.3); o.position.set(spots[i][0], spots[i][1], 0.4); root.add(o); return o;
     });
-    let yaw = 0, pitch = 0;
-    return (t, cam) => {
+    things.forEach((o) => x.poke(o, { push: 0.5 }));
+    // the eye follows your pointer or finger, and looks surprised when tapped
+    let yaw = 0, pitch = 0, sur = 0, pop = 0, popv = 0;
+    x.tap((h, nx, ny) => { sur = 1; if (!reduce) { popv += 3.2; kick(x.v, nx, ny, 3, 1.4); } });
+    return (t, cam, aspect, dt) => {
       const tt = reduce ? 0 : t;
       const k = Math.floor(tt / 1.6) % 4, f = (tt / 1.6) % 1;
       things.forEach((o, i) => {
@@ -414,15 +691,21 @@ const builders = {
         const s = o.scale.x + (target - o.scale.x) * 0.15; o.scale.setScalar(s);
         o.rotation.set(tt * 0.4 + i, tt * 0.5 + i * 2, on ? Math.sin(tt * 14) * 0.15 * (1 - f) : 0);
       });
-      const p = things[k].position;
-      yaw += (Math.atan2(p.x, 4) * 1.1 - yaw) * 0.12; pitch += (-Math.atan2(p.y, 4) * 1.1 - pitch) * 0.12;
+      let ty, tp;
+      if (x.inp.active) { ty = x.inp.nx * 0.8; tp = -x.inp.ny * 0.65; }
+      else { const p = things[k].position; ty = Math.atan2(p.x, 4) * 1.1; tp = -Math.atan2(p.y, 4) * 1.1; }
+      yaw += (ty - yaw) * 0.12; pitch += (tp - pitch) * 0.12;
       eye.rotation.set(pitch, yaw, 0);
-      pupil.scale.setScalar(1.07); pupil.scale.x = pupil.scale.z = 1.07 * (0.9 + 0.2 * (1 - f));
+      sur = Math.max(0, sur - dt * 0.8);
+      popv += (-pop * 120 - popv * 8) * dt; pop += popv * dt;
+      eye.scale.setScalar(1 + pop * 0.15);
+      const pw = x.inp.active ? 1 : 0.9 + 0.2 * (1 - f);
+      pupil.scale.setScalar(1.07); pupil.scale.x = pupil.scale.z = 1.07 * pw * (1 - 0.45 * Math.min(1, sur * 1.6));
       eye.position.y = Math.sin(tt * 0.8) * 0.06;
       cam.position.set(0, 0.6, 10);
     };
   },
-  noise(scene) {
+  noise(scene, cam, x) {
     const geos = [G.box, G.sphere, G.torus, G.capsule, G.cone, G.knot];
     const cols = [C.yellow, C.teal, C.green, C.coral, C.lilac, C.peach, C.pink, C.white];
     let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -432,25 +715,34 @@ const builders = {
     for (let i = 0; i < 18; i++) {
       const s = 0.2 + rnd() * 0.28;
       const o = obj(geos[i % geos.length], cols[i % cols.length], s);
-      let x = (rnd() - 0.5) * 4.0, y = (rnd() - 0.5) * 3.0;
-      if (Math.abs(x) < 0.7 && Math.abs(y) < 0.6) x += x < 0 ? -0.8 : 0.8;
-      o.position.set(x, y, (rnd() - 0.5) * 2);
+      let px = (rnd() - 0.5) * 4.0, py = (rnd() - 0.5) * 3.0;
+      if (Math.abs(px) < 0.7 && Math.abs(py) < 0.6) px += px < 0 ? -0.8 : 0.8;
+      o.position.set(px, py, (rnd() - 0.5) * 2);
       o.userData = { x: o.position.x, y: o.position.y, ph: rnd() * 6, r: 0.6 + rnd() * 1.5 };
       scene.add(o); objs.push(o);
     }
+    // the pile scatters away from a tap and settles back; the lost cube opens its eyes while there is room
+    const P = objs.map((o) => x.poke(o, { push: 0.6, k: 40, c: 6 }));
+    const pb = x.poke(b, { push: -0.15, hop: 2.4 });
+    x.tap((h, nx, ny) => { if (h === pb) cheer(pb); kick(x.v, nx, ny, 7, 2.5); });
     return (t, cam) => {
       const tt = reduce ? 0 : t;
       objs.forEach((o) => { const u = o.userData; o.position.x = u.x + Math.sin(tt * 5 + u.ph) * 0.05; o.position.y = u.y + Math.cos(tt * 6 + u.ph) * 0.06; o.rotation.x = tt * u.r; o.rotation.y = tt * u.r * 1.3; });
+      let room = 0; P.forEach((p) => { room += p.off.length(); }); room /= P.length;
+      b.userData.squint = 0.35 + Math.min(0.65, room * 2.2);
       b.rotation.set(Math.sin(tt * 3) * 0.08, 0.2 + Math.sin(tt * 2.3) * 0.1, Math.sin(tt * 4) * 0.06);
       blink(b, t, Math.sin(tt * 3), Math.cos(tt * 2.6));
       cam.position.set(0, 0, 9);
     };
   },
-  intent(scene) {
+  intent(scene, cam, x) {
     const root = new THREE.Group(); root.position.y = 0.1; scene.add(root);
     const pl = obj(G.small, C.white, 0.85); pl.position.y = -0.85; root.add(pl);
     root.add(blob(1.15, -1.0));
     const b = buddy(1.0, 0.2); root.add(b);
+    // tap anywhere: the cube hops, squashes and shows happy eyes. Press and drag to pull it; it springs home.
+    const pb = x.poke(b, { push: -0.3, floor: true, h: 0.5, hop: 4 });
+    x.tap(() => cheer(pb));
     return (t, cam) => {
       const s = pointer();
       const tt = reduce ? 0 : t;
@@ -461,11 +753,11 @@ const builders = {
       b.scale.set(1 + (1 - sq) * 0.6, sq, 1 + (1 - sq) * 0.6);
       b.position.y = -0.2 + hop - (1 - sq) * 0.5;
       b.rotation.y = 0.35 + Math.sin(tt * 0.4) * 0.25 - s.px * 0.4;
-      blink(b, t, s.px * 2.2, -s.py * 2);
+      blink(b, t, x.inp.active ? x.inp.nx * 2.2 : s.px * 2.2, x.inp.active ? x.inp.ny * 2 : -s.py * 2);
       cam.position.set(0, 1.5, 7.4);
     };
   },
-  budget(scene) {
+  budget(scene, cam, x) {
     const root = new THREE.Group(); root.position.y = -0.45; root.rotation.y = -0.4; scene.add(root);
     const tray = obj(G.tray, C.white); root.add(tray);
     root.add(blob(1.9, -0.2));
@@ -476,31 +768,43 @@ const builders = {
     const room = new THREE.Mesh(G.ring, inkMat); room.rotation.x = -Math.PI / 2; room.scale.setScalar(0.3); room.position.set(xs[3], 0.18, 0); root.add(room);
     const items = [b, sph, cap];
     const base = [0.47, 0.46, 0.445];
-    return (t, cam, aspect) => {
+    const pb = x.poke(b, { push: 0.25, floor: true, h: 0.31 });
+    x.poke(sph, { push: 0.3, floor: true, h: 0.3 }); x.poke(cap, { push: 0.3, floor: true, h: 0.44 });
+    // tap a shape to make it hop; tap the empty spot and the "room left" ring breathes out
+    let rs = 0, rv = 0;
+    x.tap((h) => { if (h === pb) cheer(pb); else if (h) { if (!reduce) { h.vel.y += 2.6; h.sqv -= 3; } } else if (!reduce) rv += 4; });
+    return (t, cam, aspect, dt) => {
       const tt = reduce ? 0 : t;
       items.forEach((o, i) => { const k = (tt * 0.9 - i * 0.45) % 4.2; const hop = k > 0 && k < 0.55 ? Math.sin((k / 0.55) * Math.PI) * 0.22 : 0; o.position.y = base[i] + hop; });
       cap.rotation.y = tt * 0.3;
-      room.scale.setScalar(0.3 + Math.sin(tt * 1.6) * 0.025);
+      rv += (-rs * 150 - rv * 8) * dt; rs += rv * dt;
+      room.scale.setScalar((0.3 + Math.sin(tt * 1.6) * 0.025) * (1 + rs * 0.35));
       root.rotation.y = -0.4 + S().px * 0.25;
       blink(b, t, 0.6, 0);
       cam.position.set(0, 3.2, 8.2);
     };
   },
-  close(scene) {
+  close(scene, cam, x) {
     const root = new THREE.Group(); root.position.y = 0.05; scene.add(root);
     const pl = obj(G.small, C.white, 0.8); pl.position.y = -0.95; root.add(pl);
     root.add(blob(1.05, -1.1));
     const b = buddy(1.05, 2.1); b.position.y = -0.285; root.add(b);
     const halo = new THREE.Mesh(G.ring, inkMat); halo.scale.setScalar(1.25); root.add(halo);
     const dot = obj(G.sphere, C.teal, 0.12); root.add(dot);
-    return (t, cam) => {
+    // the dot is drawn toward your pointer; a tap makes the cube hop and the halo bob
+    const pb = x.poke(b, { push: -0.15, floor: true, h: 0.525 });
+    x.poke(dot, { push: -0.7, k: 30, c: 6 });
+    let hp = 0, hv = 0;
+    x.tap(() => { cheer(pb); if (!reduce) hv += 3; });
+    return (t, cam, aspect, dt) => {
       const s = S();
       const tt = reduce ? 0 : t;
       b.rotation.y = 0.3 + Math.sin(tt * 0.35) * 0.2 - s.close * 0.3;
-      halo.position.y = 0.95 + Math.sin(tt * 0.8) * 0.06; halo.rotation.set(Math.PI / 2 - 0.25 + s.close * 0.15, 0, Math.sin(tt * 0.5) * 0.1); halo.scale.setScalar(0.55);
+      hv += (-hp * 90 - hv * 7) * dt; hp += hv * dt;
+      halo.position.y = 0.95 + Math.sin(tt * 0.8) * 0.06 + hp * 0.25; halo.rotation.set(Math.PI / 2 - 0.25 + s.close * 0.15, 0, Math.sin(tt * 0.5) * 0.1); halo.scale.setScalar(0.55 * (1 + hp * 0.15));
       const a = tt * 0.6; dot.position.set(Math.cos(a) * 1.5, 0.2 + Math.sin(a * 0.5) * 0.2, Math.sin(a) * 1.5);
       b.userData.squint = s.close > 0.92 ? 0.35 : 1;
-      blink(b, t, Math.cos(a) * 0.8, 0.2);
+      blink(b, t, x.inp.active ? x.inp.nx * 1.6 : Math.cos(a) * 0.8, x.inp.active ? x.inp.ny * 1.4 : 0.2);
       cam.position.set(0, 1.4, 9);
     };
   }
@@ -509,8 +813,12 @@ const builders = {
 const views = [...document.querySelectorAll('[data-view]')].map((el) => {
   const scene = new THREE.Scene(); stage(scene);
   const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 100); cam.position.z = 10;
-  const update = builders[el.dataset.view](scene, cam);
-  return { el, scene, cam, update, on: false, fade: el.closest('.reveal') };
+  const inp = { active: false, down: false, press: false, nx: 0, ny: 0, grab: null, taps: [] };
+  const v = { el, scene, cam, inp, pokes: [], onTap: [], aspect: 1, on: false, fade: el.closest('.reveal') };
+  const ctx = { inp, v, poke: (o, opt) => addPoke(v, o, opt), tap: (f) => v.onTap.push(f) };
+  v.update = builders[el.dataset.view](scene, cam, ctx);
+  attach(v);
+  return v;
 });
 // a full-view quad that multiplies the view's pixels by its card's opacity, so 3D fades in with its card instead of floating on a blank page
 const veilMat = new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.ZeroFactor, blendDst: THREE.SrcAlphaFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.SrcAlphaFactor });
@@ -528,13 +836,14 @@ function size() {
   return h;
 }
 const t0 = performance.now();
-let drew = true;
+let drew = true, lastT = 0;
 function frame() {
   requestAnimationFrame(frame);
   const H = size();
   const y = scrollY;
   if (y !== lastY) { canvas.style.transform = `translate3d(0,${y}px,0)`; lastY = y; }
   const t = (performance.now() - t0) / 1000;
+  const dt = Math.min(1 / 30, Math.max(0.001, t - lastT)); lastT = t;
   const live = views.filter((v) => v.on);
   if (!live.length && !drew) return;
   renderer.setScissorTest(false); renderer.clear(); renderer.setScissorTest(true);
@@ -545,12 +854,14 @@ function frame() {
     const b = H - r.bottom;
     renderer.setViewport(r.left, b, r.width, r.height);
     renderer.setScissor(r.left, b, r.width, r.height);
-    const aspect = r.width / r.height;
-    v.update(t, v.cam, aspect);
+    const aspect = r.width / r.height; v.aspect = aspect;
+    restore(v);
+    v.update(t, v.cam, aspect, dt);
     // tight depth range around each small scene: keeps depth precise on phone GPUs, so outlines, eyes and contacts never fight
     const dist = v.cam.position.length();
     v.cam.near = Math.max(0.5, dist - 6); v.cam.far = dist + 8;
     v.cam.aspect = aspect; v.cam.lookAt(0, 0, 0); v.cam.updateProjectionMatrix();
+    physics(v, dt, t);
     renderer.render(v.scene, v.cam);
     if (v.fade) {
       const o = +getComputedStyle(v.fade).opacity;
