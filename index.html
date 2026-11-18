@@ -47,7 +47,7 @@ h1,.meter,.band,.chips span{-webkit-user-select:none;user-select:none;-webkit-ta
 h1{font-weight:600;font-size:clamp(46px,6vw,80px);line-height:1.02;letter-spacing:-.035em;margin:0 0 clamp(14px,1.4vw,20px)}
 h1 .w{display:inline-block}
 h1 .w:last-child{isolation:isolate}
-.pop{isolation:isolate;font-style:normal;font-weight:700;display:inline-block;font-size:1.06em;letter-spacing:0;padding:0 .04em 0 .02em;white-space:nowrap}
+.pop{isolation:isolate;position:relative;top:-.08em;font-style:normal;font-weight:700;display:inline-block;font-size:1.06em;letter-spacing:0;padding:0 .04em 0 .02em;white-space:nowrap}
 .pop b{--f:#ffb8d6;--o:#d9468a;position:relative;display:inline-block;font-weight:700;color:var(--f);-webkit-text-stroke:.1em var(--o);paint-order:stroke fill;margin-left:-.01em;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none;translate:0 var(--y,0);rotate:var(--r,0deg)}
 .pop b:first-child{margin-left:0}
 .pop b.held{cursor:grabbing;z-index:2}
@@ -101,7 +101,8 @@ p+p{margin-top:16px}
 .say{font-weight:600;font-size:clamp(24px,2.6vw,32px);line-height:1.25;letter-spacing:-.02em;margin-top:clamp(48px,6vw,72px);max-width:22ch}
 .close{display:grid;grid-template-columns:1.1fr 1fr;align-items:center;gap:clamp(40px,6vw,96px);padding:var(--gap) 0 40px}
 .close .view{aspect-ratio:1/1;max-width:440px;justify-self:center}
-.close h2{font-size:clamp(44px,5.6vw,76px);line-height:1.02;max-width:12ch;margin-bottom:clamp(14px,1.4vw,20px)}
+.close h2{font-size:clamp(34px,5.2vw,72px);line-height:1.02;max-width:none;margin-bottom:clamp(14px,1.4vw,20px)}
+.close h2 .ln{display:block;white-space:nowrap}
 .close p{color:var(--muted);max-width:28ch;font-size:20px;line-height:1.2}
 footer{border-top:1px solid var(--line);margin-top:72px;padding:32px 0 48px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:15px;color:var(--muted)}
 footer a{color:inherit}
@@ -130,6 +131,7 @@ footer a{color:inherit}
 .pill--ink .arw .ia-b{transform:translate3d(-130%,130%,0)}
 .pill--ink .arw svg{display:block;width:100%;height:100%}
 .pill--ink .ink{position:absolute;inset:0;z-index:2;pointer-events:none;visibility:hidden;clip-path:circle(0px at 0px 0px);display:flex;align-items:center;gap:12px;padding:0 30px;background:#fff;color:#121315;border-radius:inherit}
+@media (max-width:860px){.close h2{font-size:clamp(30px,calc((100vw - 44px) / 8.1),48px)}}
 @media (max-width:860px){.hero,.row,.close,.head{grid-template-columns:1fr}.hero{min-height:0;padding-top:24px;gap:48px}.hero .view{max-width:480px;width:100%;justify-self:center}.close .view{max-width:320px;order:-1}.head{gap:16px}.meters{grid-template-columns:1fr}.budget .view{max-width:340px;width:100%}.rule .view{max-width:440px;justify-self:center}}
 @media (max-width:620px){body{font-size:16px}:root{--r:28px;--gap:96px}.grid2{grid-template-columns:1fr}header{padding:20px 0}h1{font-size:clamp(42px,12vw,54px)}.hero .view{border-radius:36px}.band{padding:18px 0}.chips{margin-top:28px}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.js .reveal,.js .m>.mi,.js .pop b{opacity:1;transform:none;filter:none}}
@@ -192,7 +194,7 @@ footer a{color:inherit}
 </div>
 <div class="grid2">
 <div class="tile s reveal"><div class="view" data-view="noise"></div><h3>Noise</h3><p>Everything shouts. Nothing lands.</p></div>
-<div class="tile g reveal"><div class="view" data-view="intent"></div><h3><em class="pop"><b data-l="I">I</b><b data-l="n">n</b><b data-l="t">t</b><b data-l="e">e</b><b data-l="n">n</b><b data-l="t">t</b></em></h3><p>One thing, with room to breathe.</p></div>
+<div class="tile g reveal"><div class="view" data-view="intent"></div><h3>Intent</h3><p>One thing, with room to breathe.</p></div>
 </div>
 </section>
 
@@ -215,7 +217,7 @@ footer a{color:inherit}
 </section>
 
 <div class="close">
-<div><h2>Nothing is free. Spend with <em class="pop"><b data-l="i">i</b><b data-l="n">n</b><b data-l="t">t</b><b data-l="e">e</b><b data-l="n">n</b><b data-l="t">t</b></em></h2><p>Less noise. More meaning. That is what premium feels like.</p></div>
+<div><h2><span class="ln">Nothing is free.</span> <span class="ln">Spend with <em class="pop"><b data-l="i">i</b><b data-l="n">n</b><b data-l="t">t</b><b data-l="e">e</b><b data-l="n">n</b><b data-l="t">t</b></em></span></h2><p>Less noise. More meaning. That is what premium feels like.</p></div>
 <div class="view" data-view="close"></div>
 </div>
 
