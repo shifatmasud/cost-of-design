@@ -218,7 +218,7 @@ function drain(b, p) {
   kick();
 }
 function roll(b) {
-  if (browser.reducedMotion) return;
+  if (browser.reducedMotion || b.el.hasAttribute("data-no-roll")) return; // label and arrow stay put
   if (b.roll < b.rollB1 - 0.02) return;
   b.rollA0 = b.roll;
   b.rollB1 = Math.floor(b.roll + 0.02) + 1;
