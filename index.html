@@ -109,7 +109,8 @@ p+p{margin-top:16px}
 .meter.fit .fill{width:60%;background:#5ec46c}
 .meter.fit .num{color:#2f8a43}
 .meter .note{font-size:16px;color:var(--muted)}
-.say{font-weight:600;font-size:clamp(24px,2.6vw,32px);line-height:1.08;letter-spacing:-.02em;margin-top:clamp(48px,6vw,72px);max-width:22ch}
+.say{font-weight:600;font-size:min(clamp(24px,2.6vw,32px),calc((100vw - 116px) / 10.8));line-height:1;letter-spacing:-.02em;margin-top:clamp(48px,6vw,72px);max-width:none}
+.say .ln{display:block;white-space:nowrap}
 .close{display:grid;grid-template-columns:1.1fr 1fr;align-items:center;gap:clamp(40px,6vw,96px);padding:var(--gap) 0 40px}
 .close .view{aspect-ratio:1/1;max-width:440px;justify-self:center}
 .close h2{font-size:clamp(34px,5.2vw,72px);line-height:1.02;max-width:none;margin-bottom:clamp(14px,1.4vw,20px)}
@@ -252,7 +253,7 @@ h1,h2,h3,.label,.lede,.intro,.tile p,.meter .name,.meter .note,.say,.close p,.ch
 <div class="meter over reveal"><div class="top"><span class="name">Piled on</span><span class="num" data-to="120">120<small>%</small></span></div><div class="trk"><i class="fill"></i></div><p class="note">Over budget. Nothing has room.</p></div>
 <div class="meter fit reveal"><div class="top"><span class="name">Budgeted</span><span class="num" data-to="60">60<small>%</small></span></div><div class="trk"><i class="fill"></i></div><p class="note">40% left for room to breathe.</p></div>
 </div>
-<p class="say">Detail is not the enemy. Unbudgeted detail is.</p>
+<p class="say"><span class="ln">Detail is not the enemy.</span> <span class="ln">Unbudgeted detail is.</span></p>
 </div>
 </section>
 
