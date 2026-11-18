@@ -834,7 +834,9 @@ const builders = {
     const GW = 1.65, GD = 0.95, GY = -1.3, GT = GY + 0.15;   // ground: half width, half depth, centre, top
     const ground = obj(new RoundedBoxGeometry(GW * 2, 0.3, GD * 2, 4, 0.13), C.white); ground.position.y = GY; root.add(ground);
     root.add(blob(1.95, GY - 0.17));
-    const cols = [C.white, C.peach, C.orange, C.teal, C.yellow];
+    // one colour per cube, never repeated: the page hues, saturated enough to stand out on the white slab
+    // (phones take the first 10, desktop all 12)
+    const cols = [0xffc23a, 0x34bfbc, 0xe5484f, 0x52bd63, 0x9670ec, 0xf58d2a, 0x47a3ec, 0xff69aa, 0xa3cd32, 0x5a68e3, 0xcf55d6, 0x1f9f7a];
     const N = innerWidth < 700 ? 10 : 12;
     const sizes = Array.from({ length: N }, (_, i) => [0.5, 0.42, 0.46, 0.36, 0.4, 0.48][i % 6]);
     // all cubes in 2 draw calls: one instanced toon mesh and one instanced outline that shares its matrices
@@ -846,7 +848,7 @@ const builders = {
     const cubes = new THREE.InstancedMesh(G.box, cubeMat, N), lines = new THREE.InstancedMesh(G.box, lineMat, N);
     lines.instanceMatrix = cubes.instanceMatrix;
     [cubes, lines].forEach((m) => { m.frustumCulled = false; m.count = 0; root.add(m); });
-    const col = new THREE.Color(); sizes.forEach((s, i) => cubes.setColorAt(i, col.setHex(cols[i % cols.length])));
+    const col = new THREE.Color(); sizes.forEach((s, i) => cubes.setColorAt(i, col.setHex(cols[i])));
     const mark = new THREE.Object3D(); scene.add(mark);   // nudged when the cubes move, so the loop knows to draw again
     const RM = reduce ? 0.3 : 1;
     const B = [];
