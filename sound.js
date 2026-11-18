@@ -48,7 +48,10 @@ function unlock() {
   build();
   if (ctx && ctx.state !== 'running') { const p = ctx.resume(); if (p && p.then) p.then(music, () => {}); }
   else if (ctx && !mus) music();
+  // the knock sounds: fetched once, after the hero intro (about 4 s in), or sooner on the first hit
+  if (ctx && !impBufs && !impLoading && !impT) impT = setTimeout(() => loadImpacts(), Math.max(0, 4000 - performance.now()));
 }
+let impT = 0;
 ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach((t) => document.addEventListener(t, unlock, { capture: true, passive: true }));
 document.addEventListener('visibilitychange', () => {
   if (!ctx) return;
@@ -407,6 +410,68 @@ function air({ f = 1200, f2 = 0, q = 1, type = 'bandpass', g = 0.1, a = 0.01, du
   if (g >= 0.06) duck();
 }
 
+// ---------- collision impacts: real recorded knocks, no synth ----------
+// Ten short one-shots cut from Kenney "Impact Sounds" (CC0, recorded foley; see media/IMPACTS.md): small wooden knocks,
+// a wood block, a ceramic plate tap, a light plastic knock and one deeper solid wood knock. Trimmed tight, no reverb,
+// high-passed and low-passed at 5.5 kHz, levelled for a phone speaker. One tiny sprite, media/impacts.ogg (Opus, 14 KB)
+// or impacts.mp3 (30 KB), one variant every 0.5 s. Fetched only after sound unlocks: about 4 s into the page (after the
+// hero intro) or on the first hit, whichever comes first. Each slot is copied into its own small buffer (about 1.7 s
+// of audio in all, ~160 KB at 24 kHz) and the sprite is dropped. Until it is ready, hits are silent.
+// Per hit: a random variant of the body's material, volume and brightness from impact speed (a soft hit is quieter and
+// duller), a small random pitch change (bigger bodies lower), panned by screen position. At most about 6 a second
+// overall, one per body every 0.25 s, and tiny resting contacts are skipped.
+const IMP_SLOT = 0.5, IMP_DUR = [0.116, 0.117, 0.105, 0.22, 0.22, 0.28, 0.28, 0.085, 0.091, 0.197];
+// material -> [variant, base playback rate]; the solid (the Intent cube) is the deep knock plus the blocks played lower
+const IMP_MAT = {
+  wood: [[0, 1], [1, 1], [2, 1], [3, 1], [4, 1]],
+  ceramic: [[5, 1], [6, 1]],
+  plastic: [[7, 1], [8, 1]],
+  solid: [[9, 1], [9, 0.94], [3, 0.8], [4, 0.82]]
+};
+const IMP_TRIM = { wood: 1, ceramic: 0.8, plastic: 0.9, solid: 1.1 };
+let impBufs = null, impLoading = false;
+function loadImpacts() {
+  if (impBufs || impLoading || !ctx || muted) return;
+  impLoading = true;
+  const opus = !!document.createElement('audio').canPlayType('audio/ogg; codecs="opus"');
+  const get = (ext) => fetch(`./media/impacts.${ext}`).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+    .then((b) => new Promise((res, rej) => ctx.decodeAudioData(b, res, (e) => rej(e || new Error('decode failed')))));
+  (opus ? get('ogg').catch(() => get('mp3')) : get('mp3')).then((sp) => {
+    const sr = sp.sampleRate, d = sp.getChannelData(0);
+    impBufs = IMP_DUR.map((dur, i) => {
+      // find the knock in its slot (decoders may shift it a little), start 3 ms before it
+      const s0 = Math.floor(i * IMP_SLOT * sr), s1 = Math.min(d.length, Math.floor((i * IMP_SLOT + 0.42) * sr));
+      let pk = 0; for (let j = s0; j < s1; j++) pk = Math.max(pk, Math.abs(d[j]));
+      let on = s0; while (on < s1 && Math.abs(d[on]) < pk * 0.04) on++;
+      on = Math.max(s0, on - Math.floor(0.003 * sr));
+      const n = Math.min(Math.floor((dur + 0.01) * sr), d.length - on), b = ctx.createBuffer(1, n, sr);
+      b.getChannelData(0).set(d.subarray(on, on + n));
+      return b;
+    });
+  }, () => { impLoading = false; });
+}
+function impact({ speed = 2, size = 0.45, mat = 'wood', x = null, id = null }) {
+  if (!ready() || speed < 1) return;                 // muted, before the first tap, or a tiny resting contact
+  if (!impBufs) { loadImpacts(); return; }
+  if (id != null && !gate('imp' + id, 250)) return;  // one body: not again for a moment
+  if (!gate('tock', 160) || !take(0.3)) return;      // all bodies: about 6 a second at most
+  const set = IMP_MAT[mat] || IMP_MAT.wood, [vi, base] = set[Math.floor(Math.random() * set.length)];
+  const k = Math.max(0, Math.min(1, (speed - 1) / 5));
+  const t = ctx.currentTime, s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), v = ctx.createGain();
+  // bigger bodies a little lower; plus a random +-4%
+  s.buffer = impBufs[vi];
+  s.playbackRate.value = base * Math.max(0.9, Math.min(1.06, Math.pow(0.45 / size, 0.25))) * (1 + (Math.random() * 2 - 1) * 0.04);
+  // a soft hit is duller: the low-pass opens with impact speed
+  fl.type = 'lowpass'; fl.Q.value = 0.5; fl.frequency.value = 1700 + 3800 * k;
+  v.gain.value = (0.012 + 0.063 * Math.pow(k, 1.2)) * (IMP_TRIM[mat] || 1) * (0.9 + Math.random() * 0.2);
+  s.connect(fl); fl.connect(v);
+  if (x != null && ctx.createStereoPanner) {
+    const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, (x / innerWidth) * 2 - 1)) * 0.6;
+    v.connect(p); p.connect(out);
+  } else v.connect(out);
+  s.start(t); s.stop(t + s.buffer.duration / s.playbackRate.value + 0.02);
+}
+
 // pentatonic scale for letters: a soft, always-in-tune run
 const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19];
 const note = (base, i) => base * Math.pow(2, PENTA[i % PENTA.length] / 12);
@@ -442,8 +507,9 @@ const S = {
     v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(0.08, t + 0.01); v.gain.exponentialRampToValueAtTime(0.0001, t + 0.36);
     o.connect(v); v.connect(out); o.start(t); o.stop(t + 0.38);
   },
-  // a physics cube landing: a soft wooden tock, louder when it hits harder, a few per second at most
-  tock(speed, size = 0.45) { if (!ready() || !gate('tock', 170) || !take(0.09)) return; const k = Math.min(1, (speed - 1) / 5), f = vary(200 / size, 0.06); tone({ f, f2: f * 0.7, type: 'triangle', g: 0.012 + 0.045 * k, a: 0.002, dur: 0.07, glide: 0.05 }); air({ f: f * 3, q: 4, g: 0.004 + 0.01 * k, dur: 0.025 }); },
+  // a physics body hitting something: a real recorded knock (see impact() below); tock() kept for old callers
+  impact: (o) => impact(o || {}),
+  tock(speed, size = 0.45) { impact({ speed, size, mat: 'wood' }); },
   // a 3D scene under the pointer: a soft round bloop
   hum() { if (!ready() || !gate('hum', 160) || !take(0.14)) return; const f = vary(330, 0.06); tone({ f, f2: f * 1.35, g: 0.045, a: 0.008, dur: 0.12, glide: 0.07 }); },
   // a finger or a held mouse sliding across a surface: a faint soft brush, louder when faster

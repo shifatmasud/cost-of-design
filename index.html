@@ -940,6 +940,7 @@ const builders = {
   // a tap on the card pops them, and any cube can be grabbed, dragged and thrown.
   stack(scene, cam, x) {
     const v = x.v, el = v.el, inp = x.inp;
+    const _ip = new THREE.Vector3();   // a cube's screen spot, for the knock's pan
     const root = new THREE.Group(); root.position.y = -0.1; root.rotation.y = 0.55; scene.add(root);
     const GW = 1.65, GD = 0.95, GY = -1.3, GT = GY + 0.15;   // ground: half width, half depth, centre, top
     const ground = obj(new RoundedBoxGeometry(GW * 2, 0.3, GD * 2, 4, 0.13), C.white); ground.position.y = GY; root.add(ground);
@@ -1182,7 +1183,7 @@ const builders = {
       // fixed 1/60 steps, at most 2 a frame; nothing runs once every cube sleeps and nobody touches them
       if (!drag && B.length === N && B.every((b) => b.isSleeping())) { acc = 0; return; }
       acc += dt;
-      let n = 0, hit = 0, hs = 0.45;
+      let n = 0, hit = 0, hs = 0.45, hi = -1;
       while (acc >= STEP && n < 2) {
         if (drag) {
           const p = drag.b.translation(); _o.set(tgt.x - p.x, tgt.y - p.y, tgt.z - p.z).multiplyScalar(16); if (_o.length() > 10) _o.setLength(10);
@@ -1192,11 +1193,15 @@ const builders = {
         world.step();
         if (!reduce) for (const b of B) if (!drag || b !== drag.b) clampV(b);
         // impacts: a sudden change in a cube's speed
-        B.forEach((b, i) => { if (drag && b === drag.b) return; const l = b.linvel(), q = pre[i], dv = Math.hypot(l.x - q[0], l.y - q[1], l.z - q[2]); if (dv > hit) { hit = dv; hs = sizes[i]; } });
+        B.forEach((b, i) => { if (drag && b === drag.b) return; const l = b.linvel(), q = pre[i], dv = Math.hypot(l.x - q[0], l.y - q[1], l.z - q[2]); if (dv > hit) { hit = dv; hs = sizes[i]; hi = i; } });
         acc -= STEP; n++;
       }
       if (n === 2) acc = Math.min(acc, STEP);
-      if (hit > 1.1 && window.__sound && window.__sound.tock) window.__sound.tock(hit, hs);
+      // a real wooden-block knock (sound.js), panned to where the cube is on screen
+      if (hit > 1.1 && hi >= 0 && window.__sound && window.__sound.impact) {
+        const p = B[hi].translation(), r = el.getBoundingClientRect(); _ip.set(p.x, p.y, p.z); root.localToWorld(_ip).project(cam);
+        window.__sound.impact({ speed: hit, size: hs, mat: 'wood', x: r.left + (_ip.x + 1) / 2 * r.width, id: 'c' + hi });
+      }
       if (n) show();
     };
   },
@@ -1246,6 +1251,8 @@ const builders = {
   noise(scene, cam, x) {
     const v = x.v, el = v.el, inp = x.inp;
     const geos = [G.box, G.sphere, G.torus, G.capsule, G.cone, G.knot];
+    // the knock each shape type makes when it hits (real recordings, sound.js): a natural mix of wood, ceramic and soft plastic
+    const MATS = ['wood', 'ceramic', 'plastic', 'plastic', 'wood', 'ceramic'], _ip = new THREE.Vector3();
     const cols = [C.yellow, C.teal, C.green, C.coral, C.lilac, C.peach, C.pink, C.white];
     let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     scene.position.x = -0.25;
@@ -1517,7 +1524,7 @@ const builders = {
         if (idle) acc = 0;
         else {
           acc += dt;
-          let n = 0, hit = 0, hs = 0.45;
+          let n = 0, hit = 0, hs = 0.45, hi = -1;
           while (acc >= STEP && n < 2) {
             if (kMoved) { kin.setNextKinematicTranslation({ x: _p.x, y: _p.y, z: _p.z }); kin.setNextKinematicRotation({ x: _q.x, y: _q.y, z: _q.z, w: _q.w }); }
             const ts = t + n * STEP;
@@ -1542,12 +1549,20 @@ const builders = {
             const pre = B.map((bd) => { const l = bd.linvel(); return [l.x, l.y, l.z]; });
             world.step();
             // impacts: a sudden change in a shape's speed during the step (read before the speed cap)
-            B.forEach((bd, i) => { if (drag && bd === drag.b) return; const l = bd.linvel(), q = pre[i], dv = Math.hypot(l.x - q[0], l.y - q[1], l.z - q[2]); if (dv > hit) { hit = dv; hs = O[i].s * 1.2; } });
+            B.forEach((bd, i) => { if (drag && bd === drag.b) return; const l = bd.linvel(), q = pre[i], dv = Math.hypot(l.x - q[0], l.y - q[1], l.z - q[2]); if (dv > hit) { hit = dv; hs = O[i].s * 1.2; hi = i; } });
             if (!reduce) for (const bd of B) if (!drag || bd !== drag.b) clampV(bd);
             acc -= STEP; n++;
           }
           if (n === 2) acc = Math.min(acc, STEP);
-          if (hit > 0.8 && window.__sound && window.__sound.tock) window.__sound.tock(Math.max(1.05, Math.min(hit, 4)), hs);   // soft and capped; the sound engine throttles it
+          // a real recorded knock (sound.js): the material follows the shape type; a hit on the Intent cube sounds deeper and
+          // more solid. Soft and capped, panned to where the shape is on screen; the sound engine throttles it.
+          if (hit > 0.8 && hi >= 0 && window.__sound && window.__sound.impact) {
+            const p = B[hi].translation(), r = el.getBoundingClientRect(), kp = kin.translation();
+            const onCube = Math.max(Math.abs(p.x - kp.x), Math.abs(p.y - kp.y), Math.abs(p.z - kp.z)) < 0.275 + O[hi].s * 0.75 + 0.08;
+            _ip.set(p.x, p.y, p.z); scene.localToWorld(_ip).project(cam);
+            window.__sound.impact({ speed: Math.max(1.05, Math.min(hit, 4)), size: onCube ? 0.7 : hs, mat: onCube ? 'solid' : MATS[O[hi].g],
+              x: r.left + (_ip.x + 1) / 2 * r.width, id: 'n' + hi });
+          }
         }
         // draw: physics pose plus the old fine jitter (none with reduced motion)
         if (!reduce || !idle) {
